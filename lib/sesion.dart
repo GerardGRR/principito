@@ -156,12 +156,13 @@ class Loginscreen extends StatelessWidget {
     );
   }
 
-  Widget buildTextField(String hint, {bool isPassword = false}) {
+  Widget buildTextField(String texto, {bool isPassword = false}) {
     return TextField(
       obscureText: isPassword,
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Color(0xFF2A72A0), fontWeight: FontWeight.bold),
+        labelText: texto,
+        labelStyle: TextStyle(color: Color(0xFF2A72A0), fontWeight: FontWeight.bold),
+        floatingLabelStyle: TextStyle(color: Color(0xFF1A4661), fontWeight: FontWeight.bold),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
