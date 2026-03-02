@@ -236,7 +236,6 @@ class LoginPage extends StatelessWidget {
   }
 }
 
-// Mantener tu clase LoginWaveClipper igual...
 class LoginWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
