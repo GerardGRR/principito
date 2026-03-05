@@ -15,7 +15,7 @@ class ElPrincipitoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primaryColor: const Color(0xFF1A4661)),
-      home: const LoginPage(),
+      home: Loginscreen(),
     );
   }
 }
