@@ -190,8 +190,8 @@ class Loginscreen extends StatelessWidget {
   }
 }
 
-// Mantener tu clase LoginWaveClipper igual...
-class LoginWaveClipper extends CustomClipper<Path> {
+//Dibujador de fondo
+class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {  //degradados (LinearGradient)
 

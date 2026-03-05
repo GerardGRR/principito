@@ -4,6 +4,7 @@ import 'home.dart';
 import 'impresiones.dart';
 import 'productos.dart';
 import 'tramites.dart';
+import 'movimientos.dart';
 
 void main() => runApp(const ElPrincipitoApp());
 
@@ -15,7 +16,7 @@ class ElPrincipitoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primaryColor: const Color(0xFF1A4661)),
-      home: Loginscreen(),
+      home: const Loginscreen(),
     );
   }
 }
@@ -25,52 +26,48 @@ class MainNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Detectamos si la pantalla es pequeña (Móvil)
     bool isMobile = MediaQuery.of(context).size.width < 700;
 
     return DefaultTabController(
-      length: 5,
+      length: 5, // Restaurado a 5 pestañas
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: Color(0xFF1A4661),
+          backgroundColor: const Color(0xFF1A4661),
           elevation: 0,
-          // Aumentamos el alto del AppBar en móvil para acomodar dos filas
           toolbarHeight: isMobile ? 120 : 80,
           title: Padding(
-            padding: EdgeInsets.only(top: 10),
-            child: isMobile
-                ? _buildMobileHeader() // Logo arriba, buscador abajo
-                : _buildWebHeader(),   // Todo en una sola fila (PC)
+            padding: const EdgeInsets.only(top: 10),
+            child: isMobile ? _buildMobileHeader() : _buildWebHeader(),
           ),
-          bottom: TabBar(
+          bottom: const TabBar(
             indicatorColor: Color(0xFFF1C40F),
             indicatorWeight: 4,
-            isScrollable: true, // EVITA QUE LAS PESTAÑAS SE AMONTONEN
+            isScrollable: true,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             tabs: [
               Tab(text: "Inicio"),
               Tab(text: "Impresiones"),
               Tab(text: "Productos"),
-              Tab(text: "Servicios"),
-              Tab(text: "Gestionar"),
+              Tab(text: "Trámites"), // Sección recuperada
+              Tab(text: "Movimientos"),
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
             HomePage(),
             ImpresionesPage(),
-            ProductosPage(),
-            TramitesPage(),
-            Center(child: Text("Panel de Gestión")),
+            ProductosPage(), // Aquí sigue el botón de "Gestionar"
+            TramitesPage(),   // Contenido de trámites restaurado
+            MovimientosPage(), // Historial de ventas
           ],
         ),
       ),
     );
   }
 
-  // --- DISEÑO PARA CELULAR ---
+  // --- CABECERAS (Iguales a tu diseño original) ---
   Widget _buildMobileHeader() {
     return Column(
       children: [
@@ -78,47 +75,42 @@ class MainNavigation extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
-              children: [
+              children: const [
                 Icon(Icons.star, color: Color(0xFFF1C40F), size: 24),
                 SizedBox(width: 8),
                 Text("El Principito", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
-            _buildUploadButton(true), // Botón compacto
+            _buildUploadButton(true),
           ],
         ),
-        SizedBox(height: 12),
-        _buildSearchBar(), // El buscador toma todo el ancho disponible abajo
+        const SizedBox(height: 12),
+        _buildSearchBar(),
       ],
     );
   }
 
-  // --- DISEÑO PARA COMPUTADORA ---
   Widget _buildWebHeader() {
     return Row(
       children: [
-        Icon(Icons.star, color: Color(0xFFF1C40F), size: 28),
-        SizedBox(width: 8),
-        Text("El Principito", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        SizedBox(width: 30),
+        const Icon(Icons.star, color: Color(0xFFF1C40F), size: 28),
+        const SizedBox(width: 8),
+        const Text("El Principito", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 30),
         Expanded(child: _buildSearchBar()),
-        SizedBox(width: 30),
+        const SizedBox(width: 30),
         _buildUploadButton(false),
       ],
     );
   }
 
-  // COMPONENTE: Buscador estilizado
   Widget _buildSearchBar() {
     return Container(
       height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child:  TextField(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+      child: const TextField(
         decoration: InputDecoration(
-          hintText: "Buscar Productos...",
+          hintText: "Buscar...",
           hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
           prefixIcon: Icon(Icons.search, size: 20, color: Color(0xFF1A4661)),
           border: InputBorder.none,
@@ -128,20 +120,16 @@ class MainNavigation extends StatelessWidget {
     );
   }
 
-  // COMPONENTE: Botón de Subida
   Widget _buildUploadButton(bool small) {
     return ElevatedButton.icon(
       onPressed: () {},
-      icon:  Icon(Icons.upload, size: 16),
-      label: Text(
-          small ? "Subir" : "Subir Impresión",
-          style: TextStyle(fontSize: 11)
-      ),
+      icon: const Icon(Icons.upload, size: 16),
+      label: Text(small ? "Subir" : "Subir Impresión", style: const TextStyle(fontSize: 11)),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF1A4661),
+        foregroundColor: const Color(0xFF1A4661),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         elevation: 0,
       ),
     );
