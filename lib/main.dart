@@ -76,9 +76,9 @@ class MainNavigation extends StatelessWidget {
           children: [
             Row(
               children: const [
-                Icon(Icons.star, color: Color(0xFFF1C40F), size: 24),
+                Icon(Icons.star, color: Color(0xFFF1C40F), size: 32),
                 SizedBox(width: 8),
-                Text("El Principito", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text("El Principito", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
             _buildUploadButton(true),
@@ -111,7 +111,7 @@ class MainNavigation extends StatelessWidget {
       child: const TextField(
         decoration: InputDecoration(
           hintText: "Buscar...",
-          hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+          hintStyle: TextStyle(fontSize: 16, color: Colors.grey),
           prefixIcon: Icon(Icons.search, size: 20, color: Color(0xFF1A4661)),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 10),
