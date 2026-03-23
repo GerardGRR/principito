@@ -54,7 +54,13 @@ class _ProductosPageState extends State<ProductosPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating, // Hace que el FAB suba automáticamente
+        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+      ),
+    );
   }
 
   Widget _buildField({
@@ -174,7 +180,6 @@ class _ProductosPageState extends State<ProductosPage> {
 
                         _buildField(label: "Nombre", controller: nameController, isRequired: true, errorText: errors['name']),
                         
-                        // Switch para Modo de Inventario
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

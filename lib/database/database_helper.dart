@@ -24,7 +24,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'el_principito.db');
     return await openDatabase(
       path,
-      version: 5, // Incrementado para asegurar la recreación tras el error de sintaxis
+      version: 6, // Incrementado para actualizar tabla de servicios
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -43,8 +43,15 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE products ADD COLUMN isQuantifiable INTEGER DEFAULT 1');
       await db.execute('ALTER TABLE products ADD COLUMN isAvailable INTEGER DEFAULT 1');
     }
-    // Si la versión es 5, onCreate se encargará si es base nueva, 
-    // pero si ya existía con error, es mejor limpiar o asegurar integridad.
+    if (oldVersion < 6) {
+      // Intentamos añadir los nuevos campos a servicios
+      try {
+        await db.execute('ALTER TABLE services ADD COLUMN link TEXT');
+        await db.execute('ALTER TABLE services ADD COLUMN imagePath TEXT');
+      } catch (e) {
+        // Ignorar si ya existen
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -64,6 +71,8 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         description TEXT,
         price REAL NOT NULL,
+        link TEXT,
+        imagePath TEXT,
         isActive INTEGER DEFAULT 1
       )
     ''');
@@ -155,5 +164,32 @@ class DatabaseHelper {
   Future<int> softDeleteProduct(int id) async {
     Database db = await database;
     return await db.update('products', {'isActive': 0}, where: 'productId = ?', whereArgs: [id]);
+  }
+
+  // --- CRUD para Service ---
+  Future<int> insertService(Service service) async {
+    Database db = await database;
+    return await db.insert('services', service.toMap());
+  }
+
+  Future<List<Service>> getServices({bool onlyActive = true}) async {
+    Database db = await database;
+    List<Map<String, dynamic>> maps;
+    if (onlyActive) {
+      maps = await db.query('services', where: 'isActive = ?', whereArgs: [1]);
+    } else {
+      maps = await db.query('services');
+    }
+    return List.generate(maps.length, (i) => Service.fromMap(maps[i]));
+  }
+
+  Future<int> updateService(Service service) async {
+    Database db = await database;
+    return await db.update('services', service.toMap(), where: 'serviceId = ?', whereArgs: [service.serviceId]);
+  }
+
+  Future<int> softDeleteService(int id) async {
+    Database db = await database;
+    return await db.update('services', {'isActive': 0}, where: 'serviceId = ?', whereArgs: [id]);
   }
 }
