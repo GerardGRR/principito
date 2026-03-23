@@ -57,7 +57,6 @@ class _ProductosPageState extends State<ProductosPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // --- WIDGET DE CAMPO PERSONALIZADO CON VALIDACIÓN VISUAL ---
   Widget _buildField({
     required String label,
     required TextEditingController controller,
@@ -117,12 +116,10 @@ class _ProductosPageState extends State<ProductosPage> {
     final tagsController = TextEditingController(text: product?.tags.join(',') ?? '');
     final descController = TextEditingController(text: product?.description ?? '');
     
-    // Estados internos del formulario
     String? selectedImagePath = product?.imagePath;
     bool isQuantifiable = product?.isQuantifiable == 1;
     bool isAvailable = product?.isAvailable == 1;
     
-    // Errores de validación
     Map<String, String?> errors = {};
 
     showDialog(
@@ -132,160 +129,137 @@ class _ProductosPageState extends State<ProductosPage> {
         builder: (context, setDialogState) => Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.85,
-            constraints: const BoxConstraints(maxWidth: 600),
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(isEditing ? "Editar Producto" : "Nuevo Producto",
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _azulMarino)),
-                      IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Selector de Imagen
-                  Center(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                        if (image != null) setDialogState(() => selectedImagePath = image.path);
-                      },
-                      child: Container(
-                        height: 140,
-                        width: 140,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: _azulClaro, width: 2),
-                        ),
-                        child: selectedImagePath != null
-                            ? ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.file(File(selectedImagePath!), fit: BoxFit.cover))
-                            : Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt_outlined, color: _azulClaro, size: 40), Text("Imagen", style: TextStyle(color: _azulClaro, fontSize: 12))]),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-
-                  _buildField(label: "Nombre", controller: nameController, isRequired: true, errorText: errors['name']),
-                  
-                  // Selector de Tipo de Producto (Cuantificable vs Booleano)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 15),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: _azulClaro.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(isEditing ? "Editar Producto" : "Nuevo Producto",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _azulMarino)),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const Divider(),
+                Flexible(
+                  child: SingleChildScrollView(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const SizedBox(height: 10),
+                        Center(
+                          child: GestureDetector(
+                            onTap: () async {
+                              final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                              if (image != null) setDialogState(() => selectedImagePath = image.path);
+                            },
+                            child: Container(
+                              height: 120,
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(color: _azulClaro, width: 2),
+                              ),
+                              child: selectedImagePath != null
+                                  ? ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.file(File(selectedImagePath!), fit: BoxFit.cover))
+                                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt_outlined, color: _azulClaro, size: 40), Text("Imagen", style: TextStyle(color: _azulClaro, fontSize: 12))]),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 25),
+
+                        _buildField(label: "Nombre", controller: nameController, isRequired: true, errorText: errors['name']),
+                        
+                        // Switch para Modo de Inventario
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.inventory, color: _azulMarino, size: 20),
-                            const SizedBox(width: 10),
-                            const Text("Modo de Inventario", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text("Modo de Inventario", style: TextStyle(color: _azulMarino, fontWeight: FontWeight.bold, fontSize: 14)),
+                            SwitchListTile(
+                              title: Text(isQuantifiable ? "Contar unidades" : "Solo disponibilidad", style: const TextStyle(fontSize: 14)),
+                              value: isQuantifiable,
+                              onChanged: (val) => setDialogState(() => isQuantifiable = val),
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: _azulMarino,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ChoiceChip(
-                                label: const Text("Contar unidades"),
-                                selected: isQuantifiable,
-                                onSelected: (val) => setDialogState(() => isQuantifiable = true),
+
+                        _buildField(label: "Precio", controller: priceController, prefixText: "\$ ", keyboardType: TextInputType.number, isRequired: true, errorText: errors['price']),
+                        
+                        if (isQuantifiable)
+                          _buildField(label: "Cantidad", controller: qtyController, keyboardType: TextInputType.number, isRequired: true, errorText: errors['qty'])
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Estado", style: TextStyle(color: _azulMarino, fontWeight: FontWeight.bold, fontSize: 14)),
+                              SwitchListTile(
+                                title: Text(isAvailable ? "Disponible" : "Agotado", style: TextStyle(fontSize: 14, color: isAvailable ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
+                                value: isAvailable,
+                                onChanged: (val) => setDialogState(() => isAvailable = val),
+                                contentPadding: EdgeInsets.zero,
+                                activeColor: Colors.green,
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ChoiceChip(
-                                label: const Text("Solo disponibilidad"),
-                                selected: !isQuantifiable,
-                                onSelected: (val) => setDialogState(() => isQuantifiable = false),
-                              ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(height: 15),
+                            ],
+                          ),
+
+                        _buildField(label: "Marca", controller: brandController),
+                        _buildField(label: "Etiquetas", controller: tagsController),
+                        _buildField(label: "Descripción", controller: descController),
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      setDialogState(() => errors.clear());
+                      bool hasValidationErrors = false;
+                      
+                      if (nameController.text.isEmpty) { errors['name'] = "Campo obligatorio"; hasValidationErrors = true; }
+                      if (priceController.text.isEmpty) { errors['price'] = "Campo obligatorio"; hasValidationErrors = true; }
+                      if (isQuantifiable && qtyController.text.isEmpty) { errors['qty'] = "Campo obligatorio"; hasValidationErrors = true; }
 
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildField(label: "Precio", controller: priceController, prefixText: "\$ ", keyboardType: TextInputType.number, isRequired: true, errorText: errors['price'])),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: isQuantifiable 
-                          ? _buildField(label: "Cantidad", controller: qtyController, keyboardType: TextInputType.number, isRequired: true, errorText: errors['qty'])
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Estado", style: TextStyle(color: _azulMarino, fontWeight: FontWeight.bold, fontSize: 14)),
-                                const SizedBox(height: 5),
-                                SwitchListTile(
-                                  title: Text(isAvailable ? "Disponible" : "Agotado", style: TextStyle(fontSize: 13, color: isAvailable ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
-                                  value: isAvailable,
-                                  onChanged: (val) => setDialogState(() => isAvailable = val),
-                                  contentPadding: EdgeInsets.zero,
-                                )
-                              ],
-                            ),
-                      ),
-                    ],
+                      if (hasValidationErrors) {
+                        setDialogState(() {});
+                        return;
+                      }
+
+                      final newProduct = Product(
+                        productId: product?.productId,
+                        name: nameController.text,
+                        description: descController.text,
+                        price: double.tryParse(priceController.text) ?? 0.0,
+                        quantity: isQuantifiable ? (int.tryParse(qtyController.text) ?? 0) : 0,
+                        brand: brandController.text,
+                        tags: tagsController.text.split(','),
+                        imagePath: selectedImagePath,
+                        isQuantifiable: isQuantifiable ? 1 : 0,
+                        isAvailable: isAvailable ? 1 : 0,
+                      );
+
+                      if (isEditing) await _dbHelper.updateProduct(newProduct);
+                      else await _dbHelper.insertProduct(newProduct);
+                      
+                      Navigator.pop(context);
+                      _loadProducts();
+                      _showSnackBar(isEditing ? "Producto actualizado" : "Producto creado");
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: _azulMarino, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    child: const Text("GUARDAR PRODUCTO", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-
-                  _buildField(label: "Marca", controller: brandController),
-                  _buildField(label: "Etiquetas", controller: tagsController),
-                  _buildField(label: "Descripción", controller: descController),
-
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        setDialogState(() => errors.clear());
-                        bool hasValidationErrors = false;
-                        
-                        if (nameController.text.isEmpty) { errors['name'] = "El nombre es obligatorio"; hasValidationErrors = true; }
-                        if (priceController.text.isEmpty) { errors['price'] = "El precio es obligatorio"; hasValidationErrors = true; }
-                        if (isQuantifiable && qtyController.text.isEmpty) { errors['qty'] = "La cantidad es obligatoria"; hasValidationErrors = true; }
-
-                        if (hasValidationErrors) {
-                          setDialogState(() {}); // Refrescar para mostrar errores
-                          return;
-                        }
-
-                        final newProduct = Product(
-                          productId: product?.productId,
-                          name: nameController.text,
-                          description: descController.text,
-                          price: double.tryParse(priceController.text) ?? 0.0,
-                          quantity: isQuantifiable ? (int.tryParse(qtyController.text) ?? 0) : 0,
-                          brand: brandController.text,
-                          tags: tagsController.text.split(','),
-                          imagePath: selectedImagePath,
-                          isQuantifiable: isQuantifiable ? 1 : 0,
-                          isAvailable: isAvailable ? 1 : 0,
-                        );
-
-                        if (isEditing) await _dbHelper.updateProduct(newProduct);
-                        else await _dbHelper.insertProduct(newProduct);
-                        
-                        Navigator.pop(context);
-                        _loadProducts();
-                        _showSnackBar(isEditing ? "Producto actualizado" : "Producto creado");
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: _azulMarino, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text("GUARDAR PRODUCTO", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
