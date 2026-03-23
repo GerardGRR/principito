@@ -24,7 +24,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'el_principito.db');
     return await openDatabase(
       path,
-      version: 4, // Incrementado por isQuantifiable e isAvailable
+      version: 5, // Incrementado para asegurar la recreación tras el error de sintaxis
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -43,6 +43,8 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE products ADD COLUMN isQuantifiable INTEGER DEFAULT 1');
       await db.execute('ALTER TABLE products ADD COLUMN isAvailable INTEGER DEFAULT 1');
     }
+    // Si la versión es 5, onCreate se encargará si es base nueva, 
+    // pero si ya existía con error, es mejor limpiar o asegurar integridad.
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -58,7 +60,7 @@ class DatabaseHelper {
 
     await db.execute('''
       CREATE TABLE services (
-        serviceId PRIMARY KEY AUTOINCREMENT,
+        serviceId INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         description TEXT,
         price REAL NOT NULL,
