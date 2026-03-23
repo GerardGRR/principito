@@ -5,8 +5,11 @@ class Product {
   final int quantity;
   final List<String> tags;
   final double price;
-  final String branch;
-  final int isActive; // 1 for true, 0 for false
+  final String brand;
+  final String? imagePath;
+  final int isActive;
+  final int isQuantifiable; // 1: Por cantidad numérica, 0: Solo disponibilidad (booleano)
+  final int isAvailable;    // Solo se usa si isQuantifiable es 0 (1: Disponible, 0: Agotado)
 
   Product({
     this.productId,
@@ -15,8 +18,11 @@ class Product {
     required this.quantity,
     required this.tags,
     required this.price,
-    required this.branch,
+    required this.brand,
+    this.imagePath,
     this.isActive = 1,
+    this.isQuantifiable = 1,
+    this.isAvailable = 1,
   });
 
   Map<String, dynamic> toMap() {
@@ -27,8 +33,11 @@ class Product {
       'quantity': quantity,
       'tags': tags.join(','),
       'price': price,
-      'branch': branch,
+      'brand': brand,
+      'imagePath': imagePath,
       'isActive': isActive,
+      'isQuantifiable': isQuantifiable,
+      'isAvailable': isAvailable,
     };
   }
 
@@ -40,8 +49,11 @@ class Product {
       quantity: map['quantity'],
       tags: (map['tags'] as String).split(','),
       price: map['price'],
-      branch: map['branch'],
+      brand: map['brand'] ?? '',
+      imagePath: map['imagePath'],
       isActive: map['isActive'] ?? 1,
+      isQuantifiable: map['isQuantifiable'] ?? 1,
+      isAvailable: map['isAvailable'] ?? 1,
     );
   }
 
@@ -52,8 +64,11 @@ class Product {
     int? quantity,
     List<String>? tags,
     double? price,
-    String? branch,
+    String? brand,
+    String? imagePath,
     int? isActive,
+    int? isQuantifiable,
+    int? isAvailable,
   }) {
     return Product(
       productId: productId ?? this.productId,
@@ -62,8 +77,11 @@ class Product {
       quantity: quantity ?? this.quantity,
       tags: tags ?? this.tags,
       price: price ?? this.price,
-      branch: branch ?? this.branch,
+      brand: brand ?? this.brand,
+      imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
+      isQuantifiable: isQuantifiable ?? this.isQuantifiable,
+      isAvailable: isAvailable ?? this.isAvailable,
     );
   }
 }

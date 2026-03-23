@@ -24,7 +24,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'el_principito.db');
     return await openDatabase(
       path,
-      version: 2, // Incrementado por el cambio de esquema
+      version: 4, // Incrementado por isQuantifiable e isAvailable
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -34,6 +34,14 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE products ADD COLUMN isActive INTEGER DEFAULT 1');
       await db.execute('ALTER TABLE services ADD COLUMN isActive INTEGER DEFAULT 1');
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE products ADD COLUMN brand TEXT');
+      await db.execute('ALTER TABLE products ADD COLUMN imagePath TEXT');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE products ADD COLUMN isQuantifiable INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE products ADD COLUMN isAvailable INTEGER DEFAULT 1');
     }
   }
 
@@ -50,7 +58,7 @@ class DatabaseHelper {
 
     await db.execute('''
       CREATE TABLE services (
-        serviceId INTEGER PRIMARY KEY AUTOINCREMENT,
+        serviceId PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         description TEXT,
         price REAL NOT NULL,
@@ -66,8 +74,11 @@ class DatabaseHelper {
         quantity INTEGER NOT NULL,
         tags TEXT,
         price REAL NOT NULL,
-        branch TEXT,
-        isActive INTEGER DEFAULT 1
+        brand TEXT,
+        imagePath TEXT,
+        isActive INTEGER DEFAULT 1,
+        isQuantifiable INTEGER DEFAULT 1,
+        isAvailable INTEGER DEFAULT 1
       )
     ''');
 
@@ -117,18 +128,6 @@ class DatabaseHelper {
     ''');
   }
 
-  // --- CRUD para User ---
-  Future<int> insertUser(User user) async {
-    Database db = await database;
-    return await db.insert('users', user.toMap());
-  }
-
-  Future<List<User>> getUsers() async {
-    Database db = await database;
-    List<Map<String, dynamic>> maps = await db.query('users');
-    return List.generate(maps.length, (i) => User.fromMap(maps[i]));
-  }
-
   // --- CRUD para Product ---
   Future<int> insertProduct(Product product) async {
     Database db = await database;
@@ -151,59 +150,8 @@ class DatabaseHelper {
     return await db.update('products', product.toMap(), where: 'productId = ?', whereArgs: [product.productId]);
   }
 
-  // Soft Delete para no afectar registros pasados
   Future<int> softDeleteProduct(int id) async {
     Database db = await database;
     return await db.update('products', {'isActive': 0}, where: 'productId = ?', whereArgs: [id]);
-  }
-
-  // --- CRUD para Service ---
-  Future<int> insertService(Service service) async {
-    Database db = await database;
-    return await db.insert('services', service.toMap());
-  }
-
-  Future<List<Service>> getServices({bool onlyActive = true}) async {
-    Database db = await database;
-    List<Map<String, dynamic>> maps;
-    if (onlyActive) {
-      maps = await db.query('services', where: 'isActive = ?', whereArgs: [1]);
-    } else {
-      maps = await db.query('services');
-    }
-    return List.generate(maps.length, (i) => Service.fromMap(maps[i]));
-  }
-
-  Future<int> updateService(Service service) async {
-    Database db = await database;
-    return await db.update('services', service.toMap(), where: 'serviceId = ?', whereArgs: [service.serviceId]);
-  }
-
-  Future<int> softDeleteService(int id) async {
-    Database db = await database;
-    return await db.update('services', {'isActive': 0}, where: 'serviceId = ?', whereArgs: [id]);
-  }
-
-  // --- CRUD para Sale ---
-  Future<int> insertSale(Sale sale) async {
-    Database db = await database;
-    int id = await db.insert('sales', sale.toMap());
-    for (var product in sale.products) {
-      await db.insert('sale_products', {'saleId': id, 'productId': product.productId});
-    }
-    for (var service in sale.services) {
-      await db.insert('sale_services', {'saleId': id, 'serviceId': service.serviceId});
-    }
-    return id;
-  }
-
-  Future<int> update(String table, Map<String, dynamic> data, String idColumn, int id) async {
-    Database db = await database;
-    return await db.update(table, data, where: '$idColumn = ?', whereArgs: [id]);
-  }
-
-  Future<int> delete(String table, String idColumn, int id) async {
-    Database db = await database;
-    return await db.delete(table, where: '$idColumn = ?', whereArgs: [id]);
   }
 }
