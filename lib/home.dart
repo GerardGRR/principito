@@ -207,7 +207,7 @@ class HomePage extends StatelessWidget {
           Text(
             "¿Listo para comenzar?",
             style: TextStyle(
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Colors.white
             ),

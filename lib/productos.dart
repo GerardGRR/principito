@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'database/database_helper.dart';
+import 'models/product.dart';
 
 class ProductosPage extends StatefulWidget {
   const ProductosPage({super.key});
@@ -8,186 +10,223 @@ class ProductosPage extends StatefulWidget {
 }
 
 class _ProductosPageState extends State<ProductosPage> {
-  final ScrollController _verticalController = ScrollController();
-  final ScrollController _offersController = ScrollController();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+  List<Product> _products = [];
+  bool _isEditingMode = false;
+  bool _isDeletingMode = false;
+  final Set<int> _selectedForDelete = {};
 
   @override
-  Widget build(BuildContext context) {
-    // Detectamos el ancho de la pantalla para ajustar las columnas
-    double screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth < 600 ? 2 : 4;
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: RawScrollbar(
-        controller: _verticalController,
-        thumbColor: const Color(0xFFF1C40F),
-        thickness: 12,
-        radius: const Radius.circular(10),
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          controller: _verticalController,
+  Future<void> _loadProducts() async {
+    final products = await _dbHelper.getProducts();
+    setState(() {
+      _products = products;
+    });
+  }
+
+  void _toggleEditingMode() {
+    setState(() {
+      _isEditingMode = !_isEditingMode;
+      _isDeletingMode = false;
+      _selectedForDelete.clear();
+    });
+    _showSnackBar(_isEditingMode ? "Modo edición activado" : "Modo edición desactivado");
+  }
+
+  void _toggleDeletingMode() {
+    setState(() {
+      _isDeletingMode = !_isDeletingMode;
+      _isEditingMode = false;
+      _selectedForDelete.clear();
+    });
+    _showSnackBar(_isDeletingMode ? "Selecciona productos para eliminar" : "Modo eliminación desactivado");
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // --- FORMULARIO DE PRODUCTO ---
+  void _showProductForm({Product? product}) {
+    final isEditing = product != null;
+    final nameController = TextEditingController(text: product?.name ?? '');
+    final descController = TextEditingController(text: product?.description ?? '');
+    final priceController = TextEditingController(text: product?.price.toString() ?? '');
+    final qtyController = TextEditingController(text: product?.quantity.toString() ?? '');
+    final branchController = TextEditingController(text: product?.branch ?? '');
+    final tagsController = TextEditingController(text: product?.tags.join(',') ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isEditing ? "Editar Producto" : "Nuevo Producto"),
+        content: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. SECCIÓN DE OFERTAS
-              _buildOffersSection(screenWidth),
-
-              const SizedBox(height: 20),
-
-              // 2. CABECERA CON FILTROS Y BOTÓN GESTIONAR
-              _buildCatalogHeader(screenWidth),
-
-              // 3. GRID DE PRODUCTOS
-              _buildProductGrid(crossAxisCount),
-
-              const SizedBox(height: 50),
-              _buildFooter(),
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: "Nombre")),
+              TextField(controller: descController, decoration: const InputDecoration(labelText: "Descripción")),
+              TextField(controller: priceController, decoration: const InputDecoration(labelText: "Precio"), keyboardType: TextInputType.number),
+              TextField(controller: qtyController, decoration: const InputDecoration(labelText: "Cantidad"), keyboardType: TextInputType.number),
+              TextField(controller: branchController, decoration: const InputDecoration(labelText: "Sucursal")),
+              TextField(controller: tagsController, decoration: const InputDecoration(labelText: "Etiquetas (coma-separadas)")),
             ],
           ),
         ),
-      ),
-    );
-  }
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () async {
+              final newProduct = Product(
+                productId: product?.productId,
+                name: nameController.text,
+                description: descController.text,
+                price: double.tryParse(priceController.text) ?? 0.0,
+                quantity: int.tryParse(qtyController.text) ?? 0,
+                branch: branchController.text,
+                tags: tagsController.text.split(','),
+              );
 
-  Widget _buildOffersSection(double width) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(25, 40, 25, 20),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF5D9BBD), Color(0xFF8EBFD4)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: const Text(
-            "Novedades y Ofertas Especiales",
-            style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 220,
-          child: ListView.builder(
-            controller: _offersController,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: 5,
-            itemBuilder: (context, index) => Container(
-              width: width < 600 ? 300 : 450,
-              margin: const EdgeInsets.only(right: 15, bottom: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
-              ),
-              child: const Center(child: Icon(Icons.image_outlined, size: 50, color: Colors.black12)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // CABECERA MODIFICADA: Incluye el botón Gestionar y Título
-  Widget _buildCatalogHeader(double width) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "Nuestro Catálogo",
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF2A6B91)),
-                  ),
-                  Text("Todo lo que buscas aquí", style: TextStyle(color: Color(0xFF5D9BBD), fontSize: 14)),
-                ],
-              ),
-              // BOTÓN GESTIONAR (Movido aquí para administración)
-              _buildManageButton(),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // FILTROS
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.start,
-            children: [
-              _buildFilterButton(label: "Categorías", onPressed: () {}),
-              _buildSortToggle(),
-              _buildFilterButton(label: "Filtros (n)", onPressed: () {}),
-            ],
+              if (isEditing) {
+                await _dbHelper.updateProduct(newProduct);
+                _showSnackBar("Producto actualizado");
+              } else {
+                await _dbHelper.insertProduct(newProduct);
+                _showSnackBar("Producto creado");
+              }
+              Navigator.pop(context);
+              _loadProducts();
+            },
+            child: const Text("Guardar"),
           ),
         ],
       ),
     );
   }
 
-  // NUEVO: Botón para editar productos
-  Widget _buildManageButton() {
-    return ElevatedButton.icon(
-      onPressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Accediendo al Panel de Edición de Inventario...")),
-        );
-      },
-      icon: const Icon(Icons.edit_note, size: 20),
-      label: const Text("Gestionar"),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1A4661),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
+  // --- ELIMINACIÓN ---
+  void _confirmDeletion() {
+    if (_selectedForDelete.isEmpty) return;
 
-  Widget _buildFilterButton({required String label, required VoidCallback onPressed}) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2A6B91),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        elevation: 0,
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 13)),
-    );
-  }
-
-  Widget _buildSortToggle() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFF2A6B91), borderRadius: BorderRadius.circular(30)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 12, right: 8),
-            child: Text("Ordenar por", style: TextStyle(color: Colors.white, fontSize: 13)),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirmar eliminación"),
+        content: Text("¿Estás seguro que deseas eliminar ${_selectedForDelete.length} productos? Los registros históricos no se verán afectados."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              for (var id in _selectedForDelete) {
+                await _dbHelper.softDeleteProduct(id);
+              }
+              Navigator.pop(context);
+              _toggleDeletingMode();
+              _loadProducts();
+              _showSnackBar("Productos eliminados (desactivados)");
+            },
+            child: const Text("Eliminar", style: TextStyle(color: Colors.white)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: const Color(0xFF1A4661), borderRadius: BorderRadius.circular(20)),
-            child: Row(
-              children: const [
-                Text("Aa", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                SizedBox(width: 4),
-                Icon(Icons.circle, size: 8, color: Colors.blueAccent),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = screenWidth < 600 ? 2 : 4;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(screenWidth),
+                _buildProductGrid(crossAxisCount),
+                const SizedBox(height: 100),
               ],
             ),
+          ),
+          // Botón de confirmación para borrar (flotante inferior)
+          if (_isDeletingMode && _selectedForDelete.isNotEmpty)
+            Positioned(
+              bottom: 20,
+              left: 20,
+              right: 20,
+              child: ElevatedButton.icon(
+                onPressed: _confirmDeletion,
+                icon: const Icon(Icons.delete_forever),
+                label: Text("Eliminar Seleccionados (${_selectedForDelete.length})"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: _buildFabMenu(),
+    );
+  }
+
+  Widget _buildFabMenu() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        if (_isEditingMode || _isDeletingMode)
+          FloatingActionButton.small(
+            onPressed: () => setState(() { _isEditingMode = false; _isDeletingMode = false; }),
+            backgroundColor: Colors.grey,
+            child: const Icon(Icons.close, color: Colors.white),
+          ),
+        const SizedBox(height: 10),
+        FloatingActionButton(
+          onPressed: () {}, // El menú se despliega al mantener o con un PopupMenu
+          backgroundColor: const Color(0xFF1A4661),
+          child: PopupMenuButton<String>(
+            icon: const Icon(Icons.add_business, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'add') _showProductForm();
+              if (value == 'edit') _toggleEditingMode();
+              if (value == 'delete') _toggleDeletingMode();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'add', child: ListTile(leading: Icon(Icons.add), title: Text("Agregar"))),
+              const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text("Editar"))),
+              const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete), title: Text("Borrar"))),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader(double width) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(25, 40, 25, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Gestión de Inventario",
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A4661)),
+          ),
+          Text(
+            _isEditingMode ? "Selecciona un producto para editar" : 
+            _isDeletingMode ? "Selecciona productos para eliminar" : "Catálogo disponible",
+            style: const TextStyle(color: Colors.grey),
           ),
         ],
       ),
@@ -198,55 +237,74 @@ class _ProductosPageState extends State<ProductosPage> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 25),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: columns,
         crossAxisSpacing: 15,
         mainAxisSpacing: 15,
-        childAspectRatio: 0.75,
+        childAspectRatio: 0.8,
       ),
-      itemCount: 8,
-      itemBuilder: (context, index) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                ),
-                child: const Center(child: Icon(Icons.inventory_2_outlined, color: Colors.black12, size: 45)),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                "Producto ${index + 1}",
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1A4661)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+      itemCount: _products.length,
+      itemBuilder: (context, index) {
+        final product = _products[index];
+        bool isSelected = _selectedForDelete.contains(product.productId);
 
-  Widget _buildFooter() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(25),
-      color: const Color(0xFF1A4661),
-      child: const Text(
-        "© 2026 Papelería El Principito. Todos los derechos reservados.",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontSize: 11),
-      ),
+        return GestureDetector(
+          onTap: () {
+            if (_isEditingMode) {
+              _showProductForm(product: product);
+            } else if (_isDeletingMode) {
+              setState(() {
+                if (isSelected) _selectedForDelete.remove(product.productId);
+                else _selectedForDelete.add(product.productId!);
+              });
+            }
+          },
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.red.withOpacity(0.1) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isEditingMode ? Colors.blue : (isSelected ? Colors.red : Colors.grey.shade200),
+                    width: (_isEditingMode || isSelected) ? 2 : 1,
+                  ),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                ),
+                child: Column(
+                  children: [
+                    Expanded(child: Icon(Icons.inventory_2, size: 40, color: Colors.grey.shade300)),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text("\$${product.price}", style: const TextStyle(color: Color(0xFF1A4661), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isEditingMode)
+                const Positioned(
+                  top: 5, right: 5,
+                  child: CircleAvatar(radius: 12, backgroundColor: Colors.blue, child: Icon(Icons.edit, size: 12, color: Colors.white)),
+                ),
+              if (_isDeletingMode)
+                Positioned(
+                  top: 5, right: 5,
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: isSelected ? Colors.red : Colors.grey,
+                    child: Icon(isSelected ? Icons.check : Icons.delete, size: 12, color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
