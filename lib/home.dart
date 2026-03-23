@@ -86,9 +86,9 @@ class HomePage extends StatelessWidget {
             SizedBox(height: 30,),
             Row(
               children: [
-                _heroButton("→ Ver Catálogo", isYellow: true),
+                _heroButton("Ver Catálogo", isYellow: true),
                 SizedBox(width: 15,),
-                _heroButton("↑ Subir impresión", isYellow: false),
+                _heroButton("Subir impresión", isYellow: false),
               ],
             ),
           ],

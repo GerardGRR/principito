@@ -93,9 +93,9 @@ class MainNavigation extends StatelessWidget {
   Widget _buildWebHeader() {
     return Row(
       children: [
-        const Icon(Icons.star, color: Color(0xFFF1C40F), size: 28),
+        const Icon(Icons.star, color: Color(0xFFF1C40F), size: 32),
         const SizedBox(width: 8),
-        const Text("El Principito", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text("El Principito", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(width: 30),
         Expanded(child: _buildSearchBar()),
         const SizedBox(width: 30),
@@ -121,16 +121,19 @@ class MainNavigation extends StatelessWidget {
   }
 
   Widget _buildUploadButton(bool small) {
-    return ElevatedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.upload, size: 16),
-      label: Text(small ? "Subir" : "Subir Impresión", style: const TextStyle(fontSize: 11)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A4661),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        elevation: 0,
+    return SizedBox(
+      height: 38,
+      child: ElevatedButton.icon(
+        onPressed: () {},
+        icon: const Icon(Icons.upload, size: 20),
+        label: Text(small ? "Subir" : "Subir Impresión", style: const TextStyle(fontSize: 14)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A4661),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          elevation: 0,
+        ),
       ),
     );
   }

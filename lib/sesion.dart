@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main.dart';
+import 'main.dart'; // Asegúrate de que este import sea correcto en tu proyecto
 
 class Loginscreen extends StatelessWidget {
   const Loginscreen({super.key});
@@ -38,7 +38,7 @@ class Loginscreen extends StatelessWidget {
     );
   }
 
-  //Diseño de de we
+  //Diseño de web
   Widget buildWebLayout(BuildContext context) {
     return Row(
       //Mitad izquierda
@@ -78,24 +78,26 @@ class Loginscreen extends StatelessWidget {
               ),
             )
         ),
+        //Mitad derecha (Imagen alineada abajo)
         Expanded(
           flex: 4,
-          child: Center(
-            child: Image.asset('assets/image 1.png', fit: BoxFit.contain, width: 400,),
+          child: Align(
+            alignment: Alignment.bottomCenter, // <-- AQUÍ ESTÁ EL CAMBIO
+            child: Image.asset('assets/image 1.png', fit: BoxFit.contain, width: 600,),
           ),
         ),
       ],
     );
   }
 
-  //Diseño ṕara celulares
+  //Diseño para celulares
   Widget buildMobileLayout(BuildContext context) {
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Image.asset('assets/image 1.png', height: 200, fit: BoxFit.contain,),
+          Image.asset('assets/image 1.png', height: 300, fit: BoxFit.contain,),
           SizedBox(height: 30,),
           Text("Accede con tu usuario", textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),),
           SizedBox(height: 10,),
@@ -182,6 +184,7 @@ class Loginscreen extends StatelessWidget {
       ),
       child: IconButton(
         onPressed: () {
+          // Asegúrate de que MainNavigation() exista en tu archivo main.dart
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainNavigation()));
         },
         icon: Icon(Icons.arrow_forward, color: Colors.black87),
