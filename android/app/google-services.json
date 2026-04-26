@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1077604232697",
+    "project_id": "principito-app",
+    "storage_bucket": "principito-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1077604232697:android:4f2b69450edab95c7c2128",
+        "android_client_info": {
+          "package_name": "com.example.principito"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7LkVmFL3dXLZeCO4nQhoaqaRN03GMH0Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
