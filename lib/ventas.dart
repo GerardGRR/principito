@@ -117,20 +117,6 @@ class _VentasPageState extends State<VentasPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: TextField(
-              onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-              decoration: InputDecoration(
-                hintText: "Buscar productos o servicios...",
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF1A4661)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-            ),
-          ),
           Expanded(
             child: StreamBuilder<List<Product>>(
               stream: _firebaseService.getProducts(),
@@ -227,11 +213,9 @@ class _VentasPageState extends State<VentasPage> {
                 child: item.imagePath != null && item.imagePath!.isNotEmpty
                   ? ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.file(
-                        File(item.imagePath!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 30, color: Colors.grey),
-                      ),
+                      child: File(item.imagePath!).existsSync()
+                        ? Image.file(File(item.imagePath!), fit: BoxFit.cover)
+                        : const Icon(Icons.image_not_supported, size: 30, color: Colors.grey),
                     )
                   : const Icon(Icons.inventory_2, size: 30, color: Colors.grey),
               ),

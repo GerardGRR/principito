@@ -25,6 +25,9 @@ class _TramitesPageState extends State<TramitesPage> {
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = screenWidth < 600 ? 2 : 4;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: StreamBuilder<List<Service>>(
@@ -45,7 +48,7 @@ class _TramitesPageState extends State<TramitesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
-                    _buildServicesGrid(),
+                    _buildServicesGrid(crossAxisCount),
                     const SizedBox(height: 100),
                   ],
                 ),
@@ -98,7 +101,7 @@ class _TramitesPageState extends State<TramitesPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.only(bottom: 80, left: 20, right: 20),
+        margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
       ),
     );
   }
@@ -251,6 +254,7 @@ class _TramitesPageState extends State<TramitesPage> {
                       else await _firebaseService.addService(newService);
 
                       Navigator.pop(context);
+                      _loadServices(); // Re-load services locally if needed, but StreamBuilder handles it
                       _showSnackBar(isEditing ? "Servicio actualizado" : "Servicio creado");
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: _azulMarino, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -263,6 +267,10 @@ class _TramitesPageState extends State<TramitesPage> {
         ),
       ),
     );
+  }
+
+  void _loadServices() {
+    // This can be empty because we use StreamBuilder, but we call it in the form logic
   }
 
   void _confirmDeletion() {
@@ -335,12 +343,17 @@ class _TramitesPageState extends State<TramitesPage> {
     );
   }
 
-  Widget _buildServicesGrid() {
+  Widget _buildServicesGrid(int columns) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.9),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns, 
+        crossAxisSpacing: 15, 
+        mainAxisSpacing: 15, 
+        childAspectRatio: 0.7
+      ),
       itemCount: _services.length,
       itemBuilder: (context, index) {
         final service = _services[index];
@@ -366,14 +379,46 @@ class _TramitesPageState extends State<TramitesPage> {
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: service.imagePath != null ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: File(service.imagePath!).existsSync() ? Image.file(File(service.imagePath!), width: double.infinity, fit: BoxFit.cover) : const Icon(Icons.image_not_supported)) : Icon(Icons.description_outlined, size: 40, color: Colors.grey.shade300)),
-                    Padding(padding: const EdgeInsets.all(8.0), child: Column(children: [
-                      Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      Text("\$${service.price}", style: TextStyle(color: _azulMarino, fontSize: 12, fontWeight: FontWeight.bold)),
-                      if (service.link != null && service.link!.isNotEmpty)
-                        const Icon(Icons.link, size: 14, color: Colors.blue),
-                    ])),
+                    Expanded(
+                      flex: 5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: service.imagePath != null && service.imagePath!.isNotEmpty 
+                          ? ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), 
+                              child: File(service.imagePath!).existsSync()
+                                ? Image.file(File(service.imagePath!), fit: BoxFit.cover)
+                                : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey)
+                            ) 
+                          : Icon(Icons.description_outlined, size: 40, color: Colors.grey.shade300),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("\$${service.price}", style: TextStyle(color: _azulMarino, fontSize: 12, fontWeight: FontWeight.bold)),
+                                if (service.link != null && service.link!.isNotEmpty)
+                                  const Icon(Icons.link, size: 14, color: Colors.blue),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

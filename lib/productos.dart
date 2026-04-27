@@ -400,7 +400,12 @@ class _ProductosPageState extends State<ProductosPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns, 
+        crossAxisSpacing: 15, 
+        mainAxisSpacing: 15, 
+        childAspectRatio: 0.7 // Fijo para evitar que se mengüen
+      ),
       itemCount: _products.length,
       itemBuilder: (context, index) {
         final product = _products[index];
@@ -422,21 +427,44 @@ class _ProductosPageState extends State<ProductosPage> {
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      child: product.imagePath != null
-                          ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: File(product.imagePath!).existsSync() ? Image.file(File(product.imagePath!), width: double.infinity, fit: BoxFit.cover) : const Icon(Icons.image_not_supported))
-                          : Icon(Icons.inventory_2, size: 40, color: Colors.grey.shade300),
+                      flex: 5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: product.imagePath != null && product.imagePath!.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), 
+                                child: File(product.imagePath!).existsSync() 
+                                  ? Image.file(File(product.imagePath!), fit: BoxFit.cover) 
+                                  : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey)
+                              )
+                            : Icon(Icons.inventory_2, size: 40, color: Colors.grey.shade300),
+                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
-                          Text("\$${product.price}", style: TextStyle(color: _azulMarino, fontSize: 12)),
-                          if (outOfStock) const Text("AGOTADO", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
-                          if (!outOfStock && product.isQuantifiable == 1) Text("Stock: ${product.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                        ],
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("\$${product.price.toStringAsFixed(2)}", style: TextStyle(color: _azulMarino, fontSize: 12, fontWeight: FontWeight.bold)),
+                                if (outOfStock) const Text("AGOTADO", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                                if (!outOfStock && product.isQuantifiable == 1) Text("Stock: ${product.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

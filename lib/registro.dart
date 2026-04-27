@@ -69,7 +69,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
         'email': emailController.text.trim(),
         'username': userController.text.trim(),
         'name': "${nameController.text.trim()} ${lastNameController.text.trim()}",
-        'role': 'empleado', // Cambiado de vendedor a empleado según requerimiento previo
+        'role': 'Usuario', // Cambiado de vendedor a empleado según requerimiento previo
       });
 
       if (mounted) {

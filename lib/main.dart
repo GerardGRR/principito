@@ -76,7 +76,7 @@ class _MainNavigationState extends State<MainNavigation> {
       _managementPage = page;
       _isManagementView = true;
     });
-    Navigator.pop(context); // Close drawer
+    Navigator.pop(context); // Cerrar drawer
   }
 
   @override
@@ -97,7 +97,6 @@ class _MainNavigationState extends State<MainNavigation> {
             automaticallyImplyLeading: false,
             title: Row(
               children: [
-                // Estrella amarilla que abre el drawer
                 Builder(builder: (context) => IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -107,10 +106,6 @@ class _MainNavigationState extends State<MainNavigation> {
                 const SizedBox(width: 12),
                 const Text("EL PRINCIPITO",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                if (!isMobile) ...[
-                  const SizedBox(width: 30),
-                  Expanded(child: _buildSearchBar()),
-                ],
               ],
             ),
             actions: [
@@ -126,8 +121,9 @@ class _MainNavigationState extends State<MainNavigation> {
           drawer: _buildDrawer(context, user, isEmployee, isAdmin),
           body: Column(
             children: [
-              if (isMobile) Padding(
-                padding: const EdgeInsets.all(8.0),
+              // Barra de búsqueda única centrada debajo del header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: _buildSearchBar(),
               ),
               Expanded(
@@ -222,14 +218,18 @@ class _MainNavigationState extends State<MainNavigation> {
 
   Widget _buildSearchBar() {
     return Container(
-      height: 38,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100, 
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
       child: TextField(
         onChanged: (value) => searchQuery.value = value,
         decoration: const InputDecoration(
           hintText: "Buscar...",
           hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
-          prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF1A4661)),
+          prefixIcon: Icon(Icons.search, size: 20, color: Color(0xFF1A4661)),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 10),
         ),
