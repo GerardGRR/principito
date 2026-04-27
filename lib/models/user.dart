@@ -1,35 +1,35 @@
-class User {
-  final int? userId;
+class AppUser {
+  final String uid;
   final String username;
   final String name;
-  final String password;
+  final String email;
   final String role;
 
-  User({
-    this.userId,
+  AppUser({
+    required this.uid,
     required this.username,
     required this.name,
-    required this.password,
+    required this.email,
     required this.role,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
+      'uid': uid,
       'username': username,
       'name': name,
-      'password': password,
+      'email': email,
       'role': role,
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map) {
-    return User(
-      userId: map['userId'],
-      username: map['username'],
-      name: map['name'],
-      password: map['password'],
-      role: map['role'],
+  factory AppUser.fromMap(Map<String, dynamic> map, String uid) {
+    return AppUser(
+      uid: uid,
+      username: map['username'] ?? '',
+      name: map['name'] ?? '',
+      email: map['email'] ?? '',
+      role: map['role'] ?? 'vendedor',
     );
   }
 }

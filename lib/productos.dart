@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'database/firebase_service.dart';
 import 'models/product.dart';
-import 'models/sale.dart';
 
 class ProductosPage extends StatefulWidget {
   const ProductosPage({super.key});
@@ -18,9 +17,7 @@ class _ProductosPageState extends State<ProductosPage> {
   List<Product> _products = [];
   bool _isEditingMode = false;
   bool _isDeletingMode = false;
-  bool _isSaleMode = false;
   final Set<String> _selectedForDelete = {};
-  final Map<String, int> _selectedForSale = {}; // productId -> cantidad
 
   final Color _azulMarino = const Color(0xFF1A4661);
   final Color _azulClaro = const Color(0xFF5D9BBD);
@@ -76,27 +73,6 @@ class _ProductosPageState extends State<ProductosPage> {
                     ),
                   ),
                 ),
-              if (_isSaleMode && _selectedForSale.isNotEmpty)
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: ElevatedButton.icon(
-                    onPressed: _showSaleSummaryDialog,
-                    icon: const Icon(Icons.point_of_sale),
-                    label: Text(
-                      "Registrar Venta - Total: \$${_calculateSaleTotal().toStringAsFixed(2)}",
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1C40F),
-                      foregroundColor: const Color(0xFF1A4661),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           );
         },
@@ -109,43 +85,18 @@ class _ProductosPageState extends State<ProductosPage> {
     setState(() {
       _isEditingMode = !_isEditingMode;
       _isDeletingMode = false;
-      _isSaleMode = false;
       _selectedForDelete.clear();
-      _selectedForSale.clear();
     });
-    _showSnackBar(
-      _isEditingMode ? "Modo edición activado" : "Modo edición desactivado",
-    );
+    _showSnackBar(_isEditingMode ? "Modo edición activado" : "Modo edición desactivado");
   }
 
   void _toggleDeletingMode() {
     setState(() {
       _isDeletingMode = !_isDeletingMode;
       _isEditingMode = false;
-      _isSaleMode = false;
       _selectedForDelete.clear();
-      _selectedForSale.clear();
     });
-    _showSnackBar(
-      _isDeletingMode
-          ? "Selecciona productos para eliminar"
-          : "Modo eliminación desactivado",
-    );
-  }
-
-  void _toggleSaleMode() {
-    setState(() {
-      _isSaleMode = !_isSaleMode;
-      _isEditingMode = false;
-      _isDeletingMode = false;
-      _selectedForDelete.clear();
-      _selectedForSale.clear();
-    });
-    _showSnackBar(
-      _isSaleMode
-          ? "Modo venta activado. Selecciona productos"
-          : "Modo venta desactivado",
-    );
+    _showSnackBar(_isDeletingMode ? "Selecciona productos para eliminar" : "Modo eliminación desactivado");
   }
 
   void _showSnackBar(String message) {
@@ -231,24 +182,14 @@ class _ProductosPageState extends State<ProductosPage> {
   void _showProductForm({Product? product}) {
     final isEditing = product != null;
     final nameController = TextEditingController(text: product?.name ?? '');
-    final priceController = TextEditingController(
-      text: product?.price.toString() ?? '',
-    );
-    final qtyController = TextEditingController(
-      text: product?.quantity.toString() ?? '',
-    );
+    final priceController = TextEditingController(text: product?.price.toString() ?? '');
+    final qtyController = TextEditingController(text: product?.quantity.toString() ?? '');
     final brandController = TextEditingController(text: product?.brand ?? '');
-    final tagsController = TextEditingController(
-      text: product?.tags.join(',') ?? '',
-    );
-    final descController = TextEditingController(
-      text: product?.description ?? '',
-    );
-
+    final tagsController = TextEditingController(text: product?.tags.join(',') ?? '');
+    final descController = TextEditingController(text: product?.description ?? '');
     String? selectedImagePath = product?.imagePath;
     bool isQuantifiable = product?.isQuantifiable == 1;
     bool isAvailable = product?.isAvailable == 1;
-
     Map<String, String?> errors = {};
 
     showDialog(
@@ -256,9 +197,7 @@ class _ProductosPageState extends State<ProductosPage> {
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
             constraints: const BoxConstraints(maxWidth: 500),
@@ -269,18 +208,9 @@ class _ProductosPageState extends State<ProductosPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isEditing ? "Editar Producto" : "Nuevo Producto",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _azulMarino,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
+                    Text(isEditing ? "Editar Producto" : "Nuevo Producto",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _azulMarino)),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
                 ),
                 const Divider(),
@@ -293,13 +223,8 @@ class _ProductosPageState extends State<ProductosPage> {
                         Center(
                           child: GestureDetector(
                             onTap: () async {
-                              final XFile? image = await _picker.pickImage(
-                                source: ImageSource.gallery,
-                              );
-                              if (image != null)
-                                setDialogState(
-                                      () => selectedImagePath = image.path,
-                                );
+                              final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                              if (image != null) setDialogState(() => selectedImagePath = image.path);
                             },
                             child: Container(
                               height: 120,
@@ -310,133 +235,48 @@ class _ProductosPageState extends State<ProductosPage> {
                                 border: Border.all(color: _azulClaro, width: 2),
                               ),
                               child: selectedImagePath != null
-                                  ? ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: Image.file(
-                                  File(selectedImagePath!),
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                                  : Column(
-                                mainAxisAlignment:
-                                MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.camera_alt_outlined,
-                                    color: _azulClaro,
-                                    size: 40,
-                                  ),
-                                  Text(
-                                    "Imagen",
-                                    style: TextStyle(
-                                      color: _azulClaro,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                  ? ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.file(File(selectedImagePath!), fit: BoxFit.cover))
+                                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt_outlined, color: _azulClaro, size: 40), Text("Imagen", style: TextStyle(color: _azulClaro, fontSize: 12))]),
                             ),
                           ),
                         ),
                         const SizedBox(height: 25),
-
-                        _buildField(
-                          label: "Nombre",
-                          controller: nameController,
-                          isRequired: true,
-                          errorText: errors['name'],
-                        ),
-
+                        _buildField(label: "Nombre", controller: nameController, isRequired: true, errorText: errors['name']),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Modo de Inventario",
-                              style: TextStyle(
-                                color: _azulMarino,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
+                            Text("Modo de Inventario", style: TextStyle(color: _azulMarino, fontWeight: FontWeight.bold, fontSize: 14)),
                             SwitchListTile(
-                              title: Text(
-                                isQuantifiable
-                                    ? "Contar unidades"
-                                    : "Solo disponibilidad",
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                              title: Text(isQuantifiable ? "Contar unidades" : "Solo disponibilidad", style: const TextStyle(fontSize: 14)),
                               value: isQuantifiable,
-                              onChanged: (val) =>
-                                  setDialogState(() => isQuantifiable = val),
+                              onChanged: (val) => setDialogState(() => isQuantifiable = val),
                               contentPadding: EdgeInsets.zero,
                               activeColor: _azulMarino,
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
-
-                        _buildField(
-                          label: "Precio",
-                          controller: priceController,
-                          prefixText: "\$ ",
-                          keyboardType: TextInputType.number,
-                          isRequired: true,
-                          errorText: errors['price'],
-                        ),
-
+                        _buildField(label: "Precio", controller: priceController, prefixText: "\$ ", keyboardType: TextInputType.number, isRequired: true, errorText: errors['price']),
                         if (isQuantifiable)
-                          _buildField(
-                            label: "Cantidad",
-                            controller: qtyController,
-                            keyboardType: TextInputType.number,
-                            isRequired: true,
-                            errorText: errors['qty'],
-                          )
+                          _buildField(label: "Cantidad", controller: qtyController, keyboardType: TextInputType.number, isRequired: true, errorText: errors['qty'])
                         else
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                "Estado",
-                                style: TextStyle(
-                                  color: _azulMarino,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
+                              Text("Estado", style: TextStyle(color: _azulMarino, fontWeight: FontWeight.bold, fontSize: 14)),
                               SwitchListTile(
-                                title: Text(
-                                  isAvailable ? "Disponible" : "Agotado",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isAvailable
-                                        ? Colors.green
-                                        : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                title: Text(isAvailable ? "Disponible" : "Agotado", style: TextStyle(fontSize: 14, color: isAvailable ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
                                 value: isAvailable,
-                                onChanged: (val) =>
-                                    setDialogState(() => isAvailable = val),
+                                onChanged: (val) => setDialogState(() => isAvailable = val),
                                 contentPadding: EdgeInsets.zero,
                                 activeColor: Colors.green,
                               ),
                               const SizedBox(height: 15),
                             ],
                           ),
-
-                        _buildField(
-                          label: "Marca",
-                          controller: brandController,
-                        ),
-                        _buildField(
-                          label: "Etiquetas",
-                          controller: tagsController,
-                        ),
-                        _buildField(
-                          label: "Descripción",
-                          controller: descController,
-                        ),
+                        _buildField(label: "Marca", controller: brandController),
+                        _buildField(label: "Etiquetas", controller: tagsController),
+                        _buildField(label: "Descripción", controller: descController),
                       ],
                     ),
                   ),
@@ -449,33 +289,18 @@ class _ProductosPageState extends State<ProductosPage> {
                     onPressed: () async {
                       setDialogState(() => errors.clear());
                       bool hasValidationErrors = false;
+                      if (nameController.text.isEmpty) { errors['name'] = "Campo obligatorio"; hasValidationErrors = true; }
+                      if (priceController.text.isEmpty) { errors['price'] = "Campo obligatorio"; hasValidationErrors = true; }
+                      if (isQuantifiable && qtyController.text.isEmpty) { errors['qty'] = "Campo obligatorio"; hasValidationErrors = true; }
 
-                      if (nameController.text.isEmpty) {
-                        errors['name'] = "Campo obligatorio";
-                        hasValidationErrors = true;
-                      }
-                      if (priceController.text.isEmpty) {
-                        errors['price'] = "Campo obligatorio";
-                        hasValidationErrors = true;
-                      }
-                      if (isQuantifiable && qtyController.text.isEmpty) {
-                        errors['qty'] = "Campo obligatorio";
-                        hasValidationErrors = true;
-                      }
-
-                      if (hasValidationErrors) {
-                        setDialogState(() {});
-                        return;
-                      }
+                      if (hasValidationErrors) { setDialogState(() {}); return; }
 
                       final newProduct = Product(
                         productId: product?.productId,
                         name: nameController.text,
                         description: descController.text,
                         price: double.tryParse(priceController.text) ?? 0.0,
-                        quantity: isQuantifiable
-                            ? (int.tryParse(qtyController.text) ?? 0)
-                            : 0,
+                        quantity: isQuantifiable ? (int.tryParse(qtyController.text) ?? 0) : 0,
                         brand: brandController.text,
                         tags: tagsController.text.split(','),
                         imagePath: selectedImagePath,
@@ -483,27 +308,14 @@ class _ProductosPageState extends State<ProductosPage> {
                         isAvailable: isAvailable ? 1 : 0,
                       );
 
-                      if (isEditing)
-                        await _firebaseService.updateProduct(newProduct);
-                      else
-                        await _firebaseService.addProduct(newProduct);
+                      if (isEditing) await _firebaseService.updateProduct(newProduct);
+                      else await _firebaseService.addProduct(newProduct);
 
                       Navigator.pop(context);
-                      _showSnackBar(
-                        isEditing ? "Producto actualizado" : "Producto creado",
-                      );
+                      _showSnackBar(isEditing ? "Producto actualizado" : "Producto creado");
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _azulMarino,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      "GUARDAR PRODUCTO",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: _azulMarino, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    child: const Text("GUARDAR PRODUCTO", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -520,30 +332,18 @@ class _ProductosPageState extends State<ProductosPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Confirmar eliminación"),
-        content: Text(
-          "¿Estás seguro que deseas eliminar ${_selectedForDelete.length} productos?",
-        ),
+        content: Text("¿Estás seguro que deseas eliminar ${_selectedForDelete.length} productos?"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              for (var id in _selectedForDelete)
-                await _firebaseService.deleteProduct(id);
+              for (var id in _selectedForDelete) await _firebaseService.deleteProduct(id);
               Navigator.pop(context);
-              setState(() {
-                _isDeletingMode = false;
-                _selectedForDelete.clear();
-              });
+              setState(() { _isDeletingMode = false; _selectedForDelete.clear(); });
               _showSnackBar("Productos eliminados");
             },
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -554,15 +354,9 @@ class _ProductosPageState extends State<ProductosPage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (_isEditingMode || _isDeletingMode || _isSaleMode)
+        if (_isEditingMode || _isDeletingMode)
           FloatingActionButton.small(
-            onPressed: () => setState(() {
-              _isEditingMode = false;
-              _isDeletingMode = false;
-              _isSaleMode = false;
-              _selectedForSale.clear();
-              _selectedForDelete.clear();
-            }),
+            onPressed: () => setState(() { _isEditingMode = false; _isDeletingMode = false; _selectedForDelete.clear(); }),
             backgroundColor: Colors.grey,
             child: const Icon(Icons.close, color: Colors.white),
           ),
@@ -576,37 +370,11 @@ class _ProductosPageState extends State<ProductosPage> {
               if (value == 'add') _showProductForm();
               if (value == 'edit') _toggleEditingMode();
               if (value == 'delete') _toggleDeletingMode();
-              if (value == 'sell') _toggleSaleMode();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'add',
-                child: ListTile(
-                  leading: Icon(Icons.add),
-                  title: Text("Agregar"),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'edit',
-                child: ListTile(
-                  leading: Icon(Icons.edit),
-                  title: Text("Editar"),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text("Borrar"),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'sell',
-                child: ListTile(
-                  leading: Icon(Icons.point_of_sale),
-                  title: Text("Vender"),
-                ),
-              ),
+              const PopupMenuItem(value: 'add', child: ListTile(leading: Icon(Icons.add), title: Text("Agregar"))),
+              const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text("Editar"))),
+              const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete), title: Text("Borrar"))),
             ],
           ),
         ),
@@ -620,24 +388,8 @@ class _ProductosPageState extends State<ProductosPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Gestión de Inventario",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: _azulMarino,
-            ),
-          ),
-          Text(
-            _isEditingMode
-                ? "Modo edición activado"
-                : _isDeletingMode
-                ? "Modo eliminación activado"
-                : _isSaleMode
-                ? "Modo venta activado"
-                : "Catálogo disponible",
-            style: const TextStyle(color: Colors.grey),
-          ),
+          Text("Gestión de Inventario", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _azulMarino)),
+          Text(_isEditingMode ? "Modo edición activado" : _isDeletingMode ? "Modo eliminación activado" : "Catálogo disponible", style: const TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -648,324 +400,54 @@ class _ProductosPageState extends State<ProductosPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 0.8,
-      ),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.8),
       itemCount: _products.length,
       itemBuilder: (context, index) {
         final product = _products[index];
         bool isSelected = _selectedForDelete.contains(product.productId);
-        bool outOfStock =
-            (product.isQuantifiable == 1 && product.quantity <= 0) ||
-                (product.isQuantifiable == 0 && product.isAvailable == 0);
+        bool outOfStock = (product.isQuantifiable == 1 && product.quantity <= 0) || (product.isQuantifiable == 0 && product.isAvailable == 0);
 
         return GestureDetector(
           onTap: () {
-            if (_isEditingMode)
-              _showProductForm(product: product);
-            else if (_isDeletingMode)
-              setState(() {
-                if (isSelected)
-                  _selectedForDelete.remove(product.productId);
-                else if (product.productId != null)
-                  _selectedForDelete.add(product.productId!);
-              });
-            else if (_isSaleMode) {
-              if (outOfStock) {
-                _showSnackBar("Producto agotado");
-                return;
-              }
-              setState(() {
-                if (_selectedForSale.containsKey(product.productId)) {
-                  _selectedForSale.remove(product.productId);
-                } else if (product.productId != null) {
-                  _selectedForSale[product.productId!] = 1;
-                }
-              });
-            }
+            if (_isEditingMode) _showProductForm(product: product);
+            else if (_isDeletingMode) setState(() { if (isSelected) _selectedForDelete.remove(product.productId); else if (product.productId != null) _selectedForDelete.add(product.productId!); });
           },
           child: Stack(
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.red.withOpacity(0.1)
-                      : Colors.white,
+                  color: isSelected ? Colors.red.withOpacity(0.1) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _isEditingMode
-                        ? Colors.blue
-                        : (isSelected
-                        ? Colors.red
-                        : (outOfStock
-                        ? Colors.orange
-                        : Colors.grey.shade200)),
-                    width: (_isEditingMode || isSelected) ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                    ),
-                  ],
+                  border: Border.all(color: _isEditingMode ? Colors.blue : (isSelected ? Colors.red : (outOfStock ? Colors.orange : Colors.grey.shade200)), width: (_isEditingMode || isSelected) ? 2 : 1),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
                 ),
                 child: Column(
                   children: [
                     Expanded(
                       child: product.imagePath != null
-                          ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                        child: File(product.imagePath!).existsSync() 
-                          ? Image.file(File(product.imagePath!), width: double.infinity, fit: BoxFit.cover)
-                          : const Icon(Icons.image_not_supported),
-                      )
-                          : Icon(
-                        Icons.inventory_2,
-                        size: 40,
-                        color: Colors.grey.shade300,
-                      ),
+                          ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: File(product.imagePath!).existsSync() ? Image.file(File(product.imagePath!), width: double.infinity, fit: BoxFit.cover) : const Icon(Icons.image_not_supported))
+                          : Icon(Icons.inventory_2, size: 40, color: Colors.grey.shade300),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Column(
                         children: [
-                          Text(
-                            product.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            "\$${product.price}",
-                            style: TextStyle(color: _azulMarino, fontSize: 12),
-                          ),
-                          if (outOfStock)
-                            const Text(
-                              "AGOTADO",
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          if (!outOfStock && product.isQuantifiable == 1)
-                            Text(
-                              "Stock: ${product.quantity}",
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 10,
-                              ),
-                            ),
+                          Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis),
+                          Text("\$${product.price}", style: TextStyle(color: _azulMarino, fontSize: 12)),
+                          if (outOfStock) const Text("AGOTADO", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                          if (!outOfStock && product.isQuantifiable == 1) Text("Stock: ${product.quantity}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              if (_isEditingMode)
-                const Positioned(
-                  top: 5,
-                  right: 5,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Colors.blue,
-                    child: Icon(Icons.edit, size: 12, color: Colors.white),
-                  ),
-                ),
-              if (_isDeletingMode)
-                Positioned(
-                  top: 5,
-                  right: 5,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor: isSelected ? Colors.red : Colors.grey,
-                    child: Icon(
-                      isSelected ? Icons.check : Icons.delete,
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              if (_isSaleMode)
-                Positioned(
-                  top: 5,
-                  right: 5,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor:
-                    _selectedForSale.containsKey(product.productId)
-                        ? Colors.green
-                        : Colors.grey,
-                    child: Icon(
-                      _selectedForSale.containsKey(product.productId)
-                          ? Icons.check
-                          : Icons.add_shopping_cart,
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              if (_isSaleMode &&
-                  _selectedForSale.containsKey(product.productId))
-                Positioned(
-                  bottom: 5,
-                  left: 5,
-                  right: 5,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black26, blurRadius: 4),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove, size: 16),
-                          onPressed: () {
-                            setState(() {
-                              if (_selectedForSale[product.productId!]! > 1) {
-                                _selectedForSale[product.productId!] =
-                                    _selectedForSale[product.productId!]! - 1;
-                              } else {
-                                _selectedForSale.remove(product.productId);
-                              }
-                            });
-                          },
-                        ),
-                        Text(
-                          "${_selectedForSale[product.productId!]}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 16),
-                          onPressed: () {
-                            setState(() {
-                              if (!product.isQuantifiable.isEven || _selectedForSale[product.productId!]! <
-                                  product.quantity) {
-                                _selectedForSale[product.productId!] =
-                                    _selectedForSale[product.productId!]! + 1;
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              if (_isEditingMode) const Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: Colors.blue, child: Icon(Icons.edit, size: 12, color: Colors.white))),
+              if (_isDeletingMode) Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: isSelected ? Colors.red : Colors.grey, child: Icon(isSelected ? Icons.check : Icons.delete, size: 12, color: Colors.white))),
             ],
           ),
         );
       },
     );
-  }
-
-  double _calculateSaleTotal() {
-    double total = 0.0;
-    for (var entry in _selectedForSale.entries) {
-      final product = _products.firstWhere((p) => p.productId == entry.key);
-      total += product.price * entry.value;
-    }
-    return total;
-  }
-
-  void _showSaleSummaryDialog() {
-    final total = _calculateSaleTotal();
-    final selectedProducts = _selectedForSale.entries.map((entry) {
-      final product = _products.firstWhere((p) => p.productId == entry.key);
-      return {'product': product, 'quantity': entry.value};
-    }).toList();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Resumen de Venta"),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ...selectedProducts.map((item) {
-                final product = item['product'] as Product;
-                final qty = item['quantity'] as int;
-                return ListTile(
-                  dense: true,
-                  title: Text(product.name),
-                  subtitle: Text("Cantidad: $qty x \$${product.price}"),
-                  trailing: Text(
-                    "\$${(product.price * qty).toStringAsFixed(2)}",
-                  ),
-                );
-              }).toList(),
-              const Divider(),
-              ListTile(
-                title: const Text(
-                  "Total",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                trailing: Text(
-                  "\$${total.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Color(0xFF1A4661),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _registerSale();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF1C40F),
-              foregroundColor: const Color(0xFF1A4661),
-            ),
-            child: const Text("Confirmar Venta"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _registerSale() async {
-    final selectedProducts = _selectedForSale.entries.map((entry) {
-      final product = _products.firstWhere((p) => p.productId == entry.key);
-      return product.copyWith(quantity: entry.value);
-    }).toList();
-
-    final sale = Sale(
-      products: selectedProducts,
-      services: [],
-      total: _calculateSaleTotal(),
-      userId: "1", // TODO: usar usuario autenticado
-      date: DateTime.now().toIso8601String(),
-    );
-
-    await _firebaseService.registerSale(sale);
-
-    setState(() {
-      _isSaleMode = false;
-      _selectedForSale.clear();
-    });
-
-    _showSnackBar("Venta registrada exitosamente");
   }
 }

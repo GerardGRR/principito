@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // Firebase habilitado
-import 'package:file_picker/file_picker.dart';    // Selector de archivos habilitado
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
 import 'firebase_options.dart';
 import 'sesion.dart';
 import 'home.dart';
@@ -8,20 +9,20 @@ import 'impresiones.dart';
 import 'productos.dart';
 import 'tramites.dart';
 import 'movimientos.dart';
+import 'ventas.dart';
+import 'carrito.dart';
+import 'admin_usuarios.dart';
+import 'database/firebase_service.dart';
+import 'models/user.dart';
 
-// --- NOTIFICADORES GLOBALES (Para búsqueda y archivos) ---
 final ValueNotifier<String?> archivoSeleccionado = ValueNotifier(null);
 final ValueNotifier<String> searchQuery = ValueNotifier("");
 
 void main() async {
-  // Asegura la inicialización de Flutter antes de Firebase
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicialización de Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(const ElPrincipitoApp());
 }
 
@@ -35,76 +36,132 @@ class ElPrincipitoApp extends StatelessWidget {
       title: 'El Principito',
       theme: ThemeData(
         primaryColor: const Color(0xFF1A4661),
-        // Mantener la coherencia visual con tu azul marino
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF1A4661)),
       ),
-      // --- LOGIN MANTENIDO COMO HOME ---
       home: const Loginscreen(),
     );
   }
 }
 
-class MainNavigation extends StatelessWidget {
+class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
+
+  @override
+  State<MainNavigation> createState() => _MainNavigationState();
+}
+
+class _MainNavigationState extends State<MainNavigation> {
+  final FirebaseService _firebaseService = FirebaseService();
 
   @override
   Widget build(BuildContext context) {
     bool isMobile = MediaQuery.of(context).size.width < 700;
 
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF1A4661),
-          elevation: 0,
-          toolbarHeight: isMobile ? 120 : 80,
-          title: Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: isMobile ? _buildMobileHeader() : _buildWebHeader(),
+    return StreamBuilder<AppUser?>(
+      stream: _firebaseService.streamCurrentUserData(),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final isAdmin = user?.role == 'administrador';
+
+        List<Widget> tabs = [
+          const Tab(text: "Inicio"),
+          const Tab(text: "Catálogo"),
+          const Tab(text: "Impresiones"),
+          const Tab(text: "Productos"),
+          const Tab(text: "Trámites"),
+          const Tab(text: "Carrito"),
+          const Tab(text: "Movimientos"),
+        ];
+
+        List<Widget> pages = [
+          const HomePage(),
+          const VentasPage(),
+          const ImpresionesPage(),
+          const ProductosPage(),
+          const TramitesPage(),
+          const CarritoPage(),
+          const MovimientosPage(),
+        ];
+
+        if (isAdmin) {
+          tabs.add(const Tab(text: "Usuarios"));
+          pages.add(const AdminUsuariosPage());
+        }
+
+        return DefaultTabController(
+          length: tabs.length,
+          child: Scaffold(
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF1A4661),
+              elevation: 0,
+              toolbarHeight: isMobile ? 120 : 80,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.star, color: Color(0xFFF1C40F), size: 30),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+              title: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: isMobile ? _buildMobileHeader(user) : _buildWebHeader(user),
+              ),
+              bottom: TabBar(
+                indicatorColor: const Color(0xFFF1C40F),
+                indicatorWeight: 4,
+                isScrollable: true,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                tabs: tabs,
+              ),
+            ),
+            drawer: _buildDrawer(context, user),
+            body: TabBarView(children: pages),
           ),
-          bottom: const TabBar(
-            indicatorColor: Color(0xFFF1C40F),
-            indicatorWeight: 4,
-            isScrollable: true,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
-              Tab(text: "Inicio"),
-              Tab(text: "Impresiones"),
-              Tab(text: "Productos"),
-              Tab(text: "Trámites"),
-              Tab(text: "Movimientos"),
-            ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, AppUser? user) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          UserAccountsDrawerHeader(
+            decoration: const BoxDecoration(color: Color(0xFF1A4661)),
+            accountName: Text(user?.name ?? "Usuario"),
+            accountEmail: Text(user?.email ?? ""),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Color(0xFFF1C40F),
+              child: Icon(Icons.person, size: 40, color: Color(0xFF1A4661)),
+            ),
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            HomePage(),
-            ImpresionesPage(),
-            ProductosPage(),
-            TramitesPage(),
-            MovimientosPage(),
-          ],
-        ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Color(0xFF1A4661)),
+            title: const Text("Cerrar Sesión"),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const Loginscreen()),
+                  (route) => false,
+                );
+              }
+            },
+          ),
+        ],
       ),
     );
   }
 
-  // --- CABECERAS ---
-  Widget _buildMobileHeader() {
+  Widget _buildMobileHeader(AppUser? user) {
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: const [
-                Icon(Icons.star, color: Color(0xFFF1C40F), size: 32),
-                SizedBox(width: 8),
-                Text("El Principito",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-              ],
-            ),
+            const Text("El Principito",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
             _buildUploadButton(true),
           ],
         ),
@@ -114,17 +171,24 @@ class MainNavigation extends StatelessWidget {
     );
   }
 
-  Widget _buildWebHeader() {
+  Widget _buildWebHeader(AppUser? user) {
     return Row(
       children: [
-        const Icon(Icons.star, color: Color(0xFFF1C40F), size: 32),
-        const SizedBox(width: 8),
         const Text("El Principito",
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(width: 30),
         Expanded(child: _buildSearchBar()),
         const SizedBox(width: 30),
         _buildUploadButton(false),
+        const SizedBox(width: 20),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(user?.name ?? "", style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(user?.role.toUpperCase() ?? "", style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 10)),
+          ],
+        ),
       ],
     );
   }
@@ -153,7 +217,6 @@ class MainNavigation extends StatelessWidget {
           height: 38,
           child: ElevatedButton.icon(
             onPressed: () async {
-              // Lógica de FilePicker fusionada
               FilePickerResult? result = await FilePicker.platform.pickFiles(
                 type: FileType.custom,
                 allowedExtensions: ['pdf'],
@@ -161,8 +224,7 @@ class MainNavigation extends StatelessWidget {
 
               if (result != null && result.files.single.path != null) {
                 archivoSeleccionado.value = result.files.single.path;
-                // Salta automáticamente a la pestaña de Impresiones (índice 1)
-                DefaultTabController.of(context)?.animateTo(1);
+                DefaultTabController.of(context)?.animateTo(2);
               }
             },
             icon: const Icon(Icons.upload, size: 20),

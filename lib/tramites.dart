@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'database/firebase_service.dart';
 import 'models/service.dart';
-import 'models/sale.dart';
 
 class TramitesPage extends StatefulWidget {
   const TramitesPage({super.key});
@@ -19,9 +18,7 @@ class _TramitesPageState extends State<TramitesPage> {
   List<Service> _services = [];
   bool _isEditingMode = false;
   bool _isDeletingMode = false;
-  bool _isSaleMode = false;
   final Set<String> _selectedForDelete = {};
-  final Map<String, int> _selectedForSale = {}; // serviceId -> cantidad
 
   final Color _azulMarino = const Color(0xFF1A4661);
   final Color _azulClaro = const Color(0xFF5D9BBD);
@@ -70,23 +67,6 @@ class _TramitesPageState extends State<TramitesPage> {
                     ),
                   ),
                 ),
-              if (_isSaleMode && _selectedForSale.isNotEmpty)
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: ElevatedButton.icon(
-                    onPressed: _showSaleSummaryDialog,
-                    icon: const Icon(Icons.point_of_sale),
-                    label: Text("Registrar Venta - Total: \$${_calculateSaleTotal().toStringAsFixed(2)}"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1C40F),
-                      foregroundColor: const Color(0xFF1A4661),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
             ],
           );
         },
@@ -99,9 +79,7 @@ class _TramitesPageState extends State<TramitesPage> {
     setState(() {
       _isEditingMode = !_isEditingMode;
       _isDeletingMode = false;
-      _isSaleMode = false;
       _selectedForDelete.clear();
-      _selectedForSale.clear();
     });
     _showSnackBar(_isEditingMode ? "Modo edición activado" : "Modo edición desactivado");
   }
@@ -110,22 +88,9 @@ class _TramitesPageState extends State<TramitesPage> {
     setState(() {
       _isDeletingMode = !_isDeletingMode;
       _isEditingMode = false;
-      _isSaleMode = false;
       _selectedForDelete.clear();
-      _selectedForSale.clear();
     });
     _showSnackBar(_isDeletingMode ? "Selecciona servicios para eliminar" : "Modo eliminación desactivado");
-  }
-
-  void _toggleSaleMode() {
-    setState(() {
-      _isSaleMode = !_isSaleMode;
-      _isEditingMode = false;
-      _isDeletingMode = false;
-      _selectedForDelete.clear();
-      _selectedForSale.clear();
-    });
-    _showSnackBar(_isSaleMode ? "Modo venta activado. Selecciona servicios" : "Modo venta desactivado");
   }
 
   void _showSnackBar(String message) {
@@ -325,13 +290,11 @@ class _TramitesPageState extends State<TramitesPage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (_isEditingMode || _isDeletingMode || _isSaleMode)
+        if (_isEditingMode || _isDeletingMode)
           FloatingActionButton.small(
             onPressed: () => setState(() {
               _isEditingMode = false;
               _isDeletingMode = false;
-              _isSaleMode = false;
-              _selectedForSale.clear();
               _selectedForDelete.clear();
             }),
             backgroundColor: Colors.grey,
@@ -347,13 +310,11 @@ class _TramitesPageState extends State<TramitesPage> {
               if (value == 'add') _showServiceForm();
               if (value == 'edit') _toggleEditingMode();
               if (value == 'delete') _toggleDeletingMode();
-              if (value == 'sell') _toggleSaleMode();
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'add', child: ListTile(leading: Icon(Icons.add), title: Text("Agregar"))),
               const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text("Editar"))),
               const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete), title: Text("Borrar"))),
-              const PopupMenuItem(value: 'sell', child: ListTile(leading: Icon(Icons.point_of_sale), title: Text("Vender"))),
             ],
           ),
         ),
@@ -368,7 +329,7 @@ class _TramitesPageState extends State<TramitesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Trámites y Servicios", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _azulMarino)),
-          Text(_isEditingMode ? "Selecciona un servicio para editar" : _isDeletingMode ? "Selecciona servicios para eliminar" : _isSaleMode ? "Modo venta activado" : "Gestión de trámites digitales", style: const TextStyle(color: Colors.grey)),
+          Text(_isEditingMode ? "Selecciona un servicio para editar" : _isDeletingMode ? "Selecciona servicios para eliminar" : "Gestión de trámites digitales", style: const TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -393,14 +354,6 @@ class _TramitesPageState extends State<TramitesPage> {
                 if (isSelected) _selectedForDelete.remove(service.serviceId);
                 else if (service.serviceId != null) _selectedForDelete.add(service.serviceId!);
               });
-            } else if (_isSaleMode) {
-              setState(() {
-                if (_selectedForSale.containsKey(service.serviceId)) {
-                  _selectedForSale.remove(service.serviceId);
-                } else if (service.serviceId != null) {
-                  _selectedForSale[service.serviceId!] = 1;
-                }
-              });
             } else _launchURL(service.link);
           },
           child: Stack(
@@ -418,7 +371,7 @@ class _TramitesPageState extends State<TramitesPage> {
                     Padding(padding: const EdgeInsets.all(8.0), child: Column(children: [
                       Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                       Text("\$${service.price}", style: TextStyle(color: _azulMarino, fontSize: 12, fontWeight: FontWeight.bold)),
-                      if (service.link != null && service.link!.isNotEmpty && !_isSaleMode)
+                      if (service.link != null && service.link!.isNotEmpty)
                         const Icon(Icons.link, size: 14, color: Colors.blue),
                     ])),
                   ],
@@ -426,141 +379,10 @@ class _TramitesPageState extends State<TramitesPage> {
               ),
               if (_isEditingMode) const Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: Colors.blue, child: Icon(Icons.edit, size: 12, color: Colors.white))),
               if (_isDeletingMode) Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: isSelected ? Colors.red : Colors.grey, child: Icon(isSelected ? Icons.check : Icons.delete, size: 12, color: Colors.white))),
-              if (_isSaleMode)
-                Positioned(
-                  top: 5,
-                  right: 5,
-                  child: CircleAvatar(
-                    radius: 12,
-                    backgroundColor: _selectedForSale.containsKey(service.serviceId) ? Colors.green : Colors.grey,
-                    child: Icon(_selectedForSale.containsKey(service.serviceId) ? Icons.check : Icons.add_shopping_cart, size: 12, color: Colors.white),
-                  ),
-                ),
-              if (_isSaleMode && _selectedForSale.containsKey(service.serviceId))
-                Positioned(
-                  bottom: 5,
-                  left: 5,
-                  right: 5,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove, size: 16),
-                          onPressed: () {
-                            setState(() {
-                              if (_selectedForSale[service.serviceId!]! > 1) {
-                                _selectedForSale[service.serviceId!] = _selectedForSale[service.serviceId!]! - 1;
-                              } else {
-                                _selectedForSale.remove(service.serviceId);
-                              }
-                            });
-                          },
-                        ),
-                        Text("${_selectedForSale[service.serviceId!]}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 16),
-                          onPressed: () {
-                            setState(() {
-                              _selectedForSale[service.serviceId!] = _selectedForSale[service.serviceId!]! + 1;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
         );
       },
     );
-  }
-
-  double _calculateSaleTotal() {
-    double total = 0.0;
-    for (var entry in _selectedForSale.entries) {
-      final service = _services.firstWhere((s) => s.serviceId == entry.key);
-      total += service.price * entry.value;
-    }
-    return total;
-  }
-
-  void _showSaleSummaryDialog() {
-    final total = _calculateSaleTotal();
-    final selectedServices = _selectedForSale.entries.map((entry) {
-      final service = _services.firstWhere((s) => s.serviceId == entry.key);
-      return {'service': service, 'quantity': entry.value};
-    }).toList();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Resumen de Venta de Servicios"),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ...selectedServices.map((item) {
-                final service = item['service'] as Service;
-                final qty = item['quantity'] as int;
-                return ListTile(
-                  dense: true,
-                  title: Text(service.name),
-                  subtitle: Text("Cantidad: $qty x \$${service.price}"),
-                  trailing: Text("\$${(service.price * qty).toStringAsFixed(2)}"),
-                );
-              }).toList(),
-              const Divider(),
-              ListTile(
-                title: const Text("Total", style: TextStyle(fontWeight: FontWeight.bold)),
-                trailing: Text("\$${total.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1A4661))),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _registerSale();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1C40F), foregroundColor: const Color(0xFF1A4661)),
-            child: const Text("Confirmar Venta"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _registerSale() async {
-    final selectedServices = _selectedForSale.entries.map((entry) {
-      final service = _services.firstWhere((s) => s.serviceId == entry.key);
-      return service.copyWith(quantity: entry.value);
-    }).toList();
-
-    final sale = Sale(
-      products: [],
-      services: selectedServices,
-      total: _calculateSaleTotal(),
-      userId: "1", // TODO: usar usuario autenticado
-      date: DateTime.now().toIso8601String(),
-    );
-
-    await _firebaseService.registerSale(sale);
-
-    setState(() {
-      _isSaleMode = false;
-      _selectedForSale.clear();
-    });
-
-    _showSnackBar("Venta registrada exitosamente");
   }
 }

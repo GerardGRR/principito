@@ -12,37 +12,6 @@ class MovimientosPage extends StatefulWidget {
 class _MovimientosPageState extends State<MovimientosPage> {
   final FirebaseService _firebaseService = FirebaseService();
 
-  Future<void> _deleteSale(String saleId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Eliminar Venta"),
-        content: const Text("¿Estás seguro de eliminar esta venta del historial?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancelar"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _firebaseService.deleteSale(saleId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Venta eliminada")));
-      }
-    }
-  }
-
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
@@ -52,15 +21,65 @@ class _MovimientosPageState extends State<MovimientosPage> {
     }
   }
 
-  String _buildItemsText(Sale sale) {
-    List<String> items = [];
-    if (sale.products.isNotEmpty) {
-      items.add("Productos: ${sale.products.map((p) => "${p.name} (x${p.quantity})").join(', ')}");
-    }
-    if (sale.services.isNotEmpty) {
-      items.add("Servicios: ${sale.services.map((s) => "${s.name} (x${s.quantity})").join(', ')}");
-    }
-    return items.join('\n');
+  void _showSaleDetails(Sale sale) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Column(
+          children: [
+            const Icon(Icons.receipt_long, size: 50, color: Color(0xFF1A4661)),
+            const SizedBox(height: 10),
+            Text("Ticket #${sale.dailyId}", style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Fecha: ${_formatDate(sale.date)}"),
+                Text("Vendido por: ${sale.userName}"),
+                const Divider(height: 30),
+                if (sale.products.isNotEmpty) ...[
+                  const Text("PRODUCTOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ...sale.products.map((p) => ListTile(
+                    dense: true,
+                    title: Text(p.name),
+                    subtitle: Text("${p.quantity} x \$${p.price.toStringAsFixed(2)}"),
+                    trailing: Text("\$${(p.quantity * p.price).toStringAsFixed(2)}"),
+                  )),
+                ],
+                if (sale.services.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text("SERVICIOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ...sale.services.map((s) => ListTile(
+                    dense: true,
+                    title: Text(s.name),
+                    subtitle: Text("${s.quantity} x \$${s.price.toStringAsFixed(2)}"),
+                    trailing: Text("\$${(s.quantity * s.price).toStringAsFixed(2)}"),
+                  )),
+                ],
+                const Divider(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("TOTAL", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("\$${sale.total.toStringAsFixed(2)}", 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar")),
+        ],
+      ),
+    );
   }
 
   @override
@@ -88,30 +107,17 @@ class _MovimientosPageState extends State<MovimientosPage> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     "Registro de Movimientos",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A4661),
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A4661)),
                   ),
                 ),
               ),
               Expanded(
                 child: sales.isEmpty
-                    ? const Center(
-                  child: Text(
-                    "No hay ventas registradas",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
-                    ),
-                  ),
-                )
+                    ? const Center(child: Text("No hay ventas registradas", style: TextStyle(color: Colors.grey, fontSize: 16)))
                     : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: sales.length,
-                  itemBuilder: (context, index) =>
-                      _buildTransactionCard(sales[index], index),
+                  itemBuilder: (context, index) => _buildTransactionCard(sales[index], index),
                 ),
               ),
             ],
@@ -126,104 +132,46 @@ class _MovimientosPageState extends State<MovimientosPage> {
       width: double.infinity,
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A4661),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF1A4661), borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Ventas Totales Acumuladas",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
+          const Text("Ventas Totales Acumuladas", style: TextStyle(color: Colors.white70, fontSize: 14)),
           const SizedBox(height: 8),
-          Text(
-            "\$${totalSales.toStringAsFixed(2)}",
-            style: const TextStyle(
-              color: Color(0xFFF1C40F),
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text("\$${totalSales.toStringAsFixed(2)}",
+            style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 30, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
   Widget _buildTransactionCard(Sale sale, int index) {
-    return Dismissible(
-      key: Key(sale.saleId ?? index.toString()),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(15),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade200)),
+      margin: const EdgeInsets.only(bottom: 15),
+      child: ListTile(
+        onTap: () => _showSaleDetails(sale),
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFFF1C40F),
+          child: Icon(Icons.receipt, color: Color(0xFF1A4661), size: 20),
         ),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Eliminar Venta"),
-            content: const Text("¿Estás seguro de eliminar esta venta?"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancelar")),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text("Eliminar", style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-        );
-      },
-      onDismissed: (_) {
-        if (sale.saleId != null) {
-          _firebaseService.deleteSale(sale.saleId!);
-        }
-      },
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-          side: BorderSide(color: Colors.grey.shade200),
+        title: Text("Venta #${sale.dailyId}", style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Vendido por: ${sale.userName}", style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+            Text(_formatDate(sale.date), style: const TextStyle(fontSize: 11)),
+          ],
         ),
-        margin: const EdgeInsets.only(bottom: 15),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: const Color(0xFFF1C40F),
-            child: const Icon(Icons.receipt_long, color: Color(0xFF1A4661), size: 20),
-          ),
-          title: Text(
-            "Venta #${(sale.saleId ?? '').length > 5 ? (sale.saleId ?? '').substring(0, 5) : sale.saleId}",
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(
-            "${_buildItemsText(sale)}\n${_formatDate(sale.date)}",
-            style: const TextStyle(fontSize: 12),
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "\$${sale.total.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A4661),
-                ),
-              ),
-              Text(
-                "${sale.products.length + sale.services.length} items",
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ],
-          ),
-          isThreeLine: true,
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text("\$${sale.total.toStringAsFixed(2)}", 
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+            const Text("Ver detalle >", style: TextStyle(fontSize: 10, color: Colors.blue)),
+          ],
         ),
       ),
     );

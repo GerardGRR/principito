@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'registro.dart';
+import 'database/firebase_service.dart';
+import 'models/user.dart';
 
 class Loginscreen extends StatefulWidget {
   const Loginscreen({super.key});
@@ -11,77 +13,82 @@ class Loginscreen extends StatefulWidget {
 }
 
 class _LoginscreenState extends State<Loginscreen> {
-
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController userController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
+  final FirebaseService _firebaseService = FirebaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  Future<void> registrar() async {
-    try {
-      final cred = await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      final uid = cred.user!.uid;
-
-      await FirebaseFirestore.instance.collection('usuarios').doc(uid).set({
-        'email': emailController.text.trim(),
-        'rol': 'cliente',
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Usuario registrado correctamente'))
-      );
-
-      Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => MainNavigation()),
-      );
-
-    } on FirebaseAuthException catch(e) {
-      String mensaje = "Error al registrar";
-
-      if (e.code == 'email-already-in-use') {
-        mensaje = "El correo ya esta en uso";
-      } else if (e.code == "weak-password") {
-        mensaje = "La contraseña es muy debil";
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje))
-      );
-
-    }
-  }
+  
+  String? _userError;
+  String? _passwordError;
+  bool _isLoading = false;
 
   Future<void> login() async {
+    setState(() {
+      _userError = null;
+      _passwordError = null;
+    });
+
+    String input = userController.text.trim();
+    String password = passwordController.text.trim();
+
+    bool hasError = false;
+    if (input.isEmpty) {
+      setState(() => _userError = "El usuario o correo es obligatorio");
+      hasError = true;
+    }
+    if (password.isEmpty) {
+      setState(() => _passwordError = "La contraseña es obligatoria");
+      hasError = true;
+    } else if (password.length < 4) {
+      setState(() => _passwordError = "Mínimo 4 caracteres");
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    setState(() => _isLoading = true);
+
     try {
+      String email = input;
+      if (!input.contains('@')) {
+        AppUser? user = await _firebaseService.getUserByUsername(input);
+        if (user != null) {
+          email = user.email;
+        } else {
+          setState(() => _userError = "Usuario no encontrado");
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       final userCredential = await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       if (userCredential.user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainNavigation()),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
-      String mensaje = "Error al iniciar sesión";
-
-      if (e.code == 'user-not-found') {
-        mensaje = "Usuario no encontrado";
-      } else if (e.code == 'wrong-password') {
-        mensaje = "Contraseña incorrecta";
-      } else if (e.code == 'invalid-email') {
-        mensaje = "Correo inválido";
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensaje)),
-      );
+      setState(() {
+        if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          _userError = "Credenciales incorrectas";
+          _passwordError = "Credenciales incorrectas";
+        } else if (e.code == 'invalid-email') {
+          _userError = "Formato de correo inválido";
+        } else {
+          _userError = "Error al iniciar sesión: ${e.message}";
+        }
+      });
+    } catch (e) {
+      setState(() => _userError = "Ocurrió un error inesperado");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -112,14 +119,14 @@ class _LoginscreenState extends State<Loginscreen> {
       ),
     );
   }
-  // ---------------- WEB ----------------
+
   Widget buildWebLayout(BuildContext context) {
     return Row(
       children: [
         Expanded(
           flex: 6,
           child: Padding(
-            padding: const EdgeInsets.only(left: 60.0, right: 40.0),
+            padding: const EdgeInsets.symmetric(horizontal: 60.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,37 +134,27 @@ class _LoginscreenState extends State<Loginscreen> {
                 const Text("Accede con tu usuario",
                     style: TextStyle(fontSize: 45, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 10),
-                const Text("Accede con tus credenciales para poder usar la app",
+                const Text("Ingresa tu usuario o correo y contraseña",
                     style: TextStyle(fontSize: 18, color: Colors.white)),
                 const SizedBox(height: 40),
-
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: buildTextField("Correo", controller: emailController)),
+                    Expanded(child: buildTextField("Usuario o Correo", controller: userController, errorText: _userError)),
                     const SizedBox(width: 15),
-                    Expanded(child: buildTextField("Contraseña",
-                        isPassword: true, controller: passwordController)),
+                    Expanded(child: buildTextField("Contraseña", isPassword: true, controller: passwordController, errorText: _passwordError)),
                     const SizedBox(width: 15),
-                    buildSubmitButton(context),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : buildSubmitButton(context),
+                    ),
                   ],
                 ),
-
-                SizedBox(height: 20,),
-
+                const SizedBox(height: 20),
                 Center(
                   child: TextButton(
-                      onPressed: registrar,
-                      child: Text("Registrate",
-                        style: TextStyle(color: Color(0xFF2A72A0), fontWeight: FontWeight.bold, fontSize: 16),),
-                  ),
-                ),
-
-                SizedBox(height: 15),
-
-                Center(
-                  child: TextButton(
-                    onPressed: () {},
-                    child: Text("Olvide mi contraseña",
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegistroScreen())),
+                    child: const Text("¿No tienes cuenta? Regístrate aquí",
                         style: TextStyle(color: Color(0xFF2A72A0), fontWeight: FontWeight.bold, fontSize: 16)),
                   ),
                 ),
@@ -167,16 +164,12 @@ class _LoginscreenState extends State<Loginscreen> {
         ),
         Expanded(
           flex: 4,
-          child: Center(
-            child: Image.asset('assets/image 1.png',
-                fit: BoxFit.contain, width: 400),
-          ),
+          child: Center(child: Image.asset('assets/image 1.png', fit: BoxFit.contain, width: 400)),
         ),
       ],
     );
   }
 
-  // ---------------- MOBILE ----------------
   Widget buildMobileLayout(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
@@ -184,92 +177,73 @@ class _LoginscreenState extends State<Loginscreen> {
         children: [
           Image.asset('assets/image 1.png', height: 200),
           const SizedBox(height: 30),
-
           const Text("Accede con tu usuario",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
-
-          const SizedBox(height: 10),
-
-          const Text("Accede con tus credenciales para poder usar la app",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.white)),
-
           const SizedBox(height: 30),
-
-          buildTextField("Correo", controller: emailController),
+          buildTextField("Usuario o Correo", controller: userController, errorText: _userError),
           const SizedBox(height: 15),
-          buildTextField("Contraseña",
-              isPassword: true, controller: passwordController),
-
-          SizedBox(height: 20),
-
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: buildSubmitButton(context),
-          ),
-
-          SizedBox(height: 10,),
-
-          ElevatedButton(
-              onPressed: registrar,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Color(0xFF1A4661)),
-              child: Text("Registrate"),
-          ),
-
-          SizedBox(height: 30),
-
+          buildTextField("Contraseña", isPassword: true, controller: passwordController, errorText: _passwordError),
+          const SizedBox(height: 25),
+          SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
+            onPressed: _isLoading ? null : login,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF4D03F), 
+              foregroundColor: const Color(0xFF1A4661),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+            ),
+            child: _isLoading ? const CircularProgressIndicator() : const Text("INICIAR SESIÓN", style: TextStyle(fontWeight: FontWeight.bold)),
+          )),
+          const SizedBox(height: 20),
           TextButton(
-            onPressed: () {},
-            child: Text("Olvide mi contraseña",
-                style: TextStyle(color: Color(0xFF2A72A0), fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegistroScreen())),
+            child: const Text("¿No tienes cuenta? Regístrate", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  // ---------------- INPUT ----------------
-  Widget buildTextField(String texto,
-      {bool isPassword = false, TextEditingController? controller}) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        labelText: texto,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+  Widget buildTextField(String texto, {bool isPassword = false, TextEditingController? controller, String? errorText}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          obscureText: isPassword,
+          decoration: InputDecoration(
+            labelText: texto,
+            filled: true,
+            fillColor: Colors.white,
+            errorText: errorText,
+            errorStyle: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: errorText != null ? Colors.red : Colors.grey),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  // ---------------- BOTÓN ----------------
   Widget buildSubmitButton(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Color(0xFFF4D03F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: IconButton(
-        onPressed: login,
-        icon: Icon(Icons.arrow_forward, color: Colors.black87),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF4D03F), borderRadius: BorderRadius.circular(8)),
+      child: IconButton(onPressed: login, icon: const Icon(Icons.arrow_forward, color: Color(0xFF1A4661))),
     );
   }
 
-  // ---------------- HEADER ----------------
   Widget buildHeader() {
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.all(10),
-      child: Row(
+      padding: const EdgeInsets.all(15),
+      child: const Row(
         children: [
           Icon(Icons.star, color: Color(0xFFF4D03F)),
           SizedBox(width: 10),
-          Text("El Principito",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          Text("El Principito", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1A4661))),
         ],
       ),
     );
@@ -279,33 +253,14 @@ class _LoginscreenState extends State<Loginscreen> {
 class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-
-    final Rect rectInferior = Rect.fromLTWH(0, 0, size.width, size.height);
-    final Gradient gradientInferior = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Color(0xFF2A72A0).withOpacity(0.8),
-        Color(0xFF98CAE9).withOpacity(0.8),
-      ],
-    );
-
     final paintInferior = Paint()
-      ..shader = gradientInferior.createShader(rectInferior)
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF2A72A0), Color(0xFF98CAE9)])
+          .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
-    final Rect rectSuperior = Rect.fromLTWH(0, 0, size.width, size.height);
-    final Gradient gradientSuperior = LinearGradient(
-      begin: Alignment.topRight,
-      end: Alignment.bottomLeft,
-      colors: [
-        Color(0xFF98CAE9),
-        Color(0xFF2A72A0),
-      ],
-    );
-
     final paintSuperior = Paint()
-      ..shader = gradientSuperior.createShader(rectSuperior)
+      ..shader = const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF98CAE9), Color(0xFF2A72A0)])
+          .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 
     final pathInferior = Path();
@@ -322,7 +277,6 @@ class WavePainter extends CustomPainter {
     pathSuperior.quadraticBezierTo(size.width * 0.65, size.height * 0.55, size.width * 0.75, 0);
     pathSuperior.lineTo(0, 0);
     pathSuperior.close();
-
     canvas.drawPath(pathSuperior, paintSuperior);
   }
 
