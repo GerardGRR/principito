@@ -52,6 +52,32 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   final FirebaseService _firebaseService = FirebaseService();
+  int _selectedIndex = 0;
+  bool _isManagementView = false;
+  Widget? _managementPage;
+
+  final List<Widget> _mainPages = [
+    const HomePage(),
+    const VentasPage(),
+    const ImpresionesPage(),
+    const CarritoPage(),
+    const MovimientosPage(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _isManagementView = false;
+    });
+  }
+
+  void _openManagement(Widget page) {
+    setState(() {
+      _managementPage = page;
+      _isManagementView = true;
+    });
+    Navigator.pop(context); // Close drawer
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,67 +88,86 @@ class _MainNavigationState extends State<MainNavigation> {
       builder: (context, snapshot) {
         final user = snapshot.data;
         final isAdmin = user?.role == 'administrador';
+        final isEmployee = user?.role == 'empleado' || isAdmin;
 
-        List<Widget> tabs = [
-          const Tab(text: "Inicio"),
-          const Tab(text: "Catálogo"),
-          const Tab(text: "Impresiones"),
-          const Tab(text: "Productos"),
-          const Tab(text: "Trámites"),
-          const Tab(text: "Carrito"),
-          const Tab(text: "Movimientos"),
-        ];
-
-        List<Widget> pages = [
-          const HomePage(),
-          const VentasPage(),
-          const ImpresionesPage(),
-          const ProductosPage(),
-          const TramitesPage(),
-          const CarritoPage(),
-          const MovimientosPage(),
-        ];
-
-        if (isAdmin) {
-          tabs.add(const Tab(text: "Usuarios"));
-          pages.add(const AdminUsuariosPage());
-        }
-
-        return DefaultTabController(
-          length: tabs.length,
-          child: Scaffold(
-            appBar: AppBar(
-              backgroundColor: const Color(0xFF1A4661),
-              elevation: 0,
-              toolbarHeight: isMobile ? 120 : 80,
-              leading: Builder(
-                builder: (context) => IconButton(
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF1A4661),
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            title: Row(
+              children: [
+                // Estrella amarilla que abre el drawer
+                Builder(builder: (context) => IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   icon: const Icon(Icons.star, color: Color(0xFFF1C40F), size: 30),
                   onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-              title: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: isMobile ? _buildMobileHeader(user) : _buildWebHeader(user),
-              ),
-              bottom: TabBar(
-                indicatorColor: const Color(0xFFF1C40F),
-                indicatorWeight: 4,
-                isScrollable: true,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white70,
-                tabs: tabs,
-              ),
+                )),
+                const SizedBox(width: 12),
+                const Text("EL PRINCIPITO",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                if (!isMobile) ...[
+                  const SizedBox(width: 30),
+                  Expanded(child: _buildSearchBar()),
+                ],
+              ],
             ),
-            drawer: _buildDrawer(context, user),
-            body: TabBarView(children: pages),
+            actions: [
+              if (!isMobile) ...[
+                _buildUploadButton(false),
+                const SizedBox(width: 20),
+                _buildUserMiniProfile(user),
+                const SizedBox(width: 15),
+              ] else
+                _buildUploadButton(true),
+            ],
+          ),
+          drawer: _buildDrawer(context, user, isEmployee, isAdmin),
+          body: Column(
+            children: [
+              if (isMobile) Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _buildSearchBar(),
+              ),
+              Expanded(
+                child: _isManagementView ? (_managementPage ?? const HomePage()) : _mainPages[_selectedIndex],
+              ),
+            ],
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _isManagementView ? 0 : _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: const Color(0xFF1A4661),
+            selectedItemColor: _isManagementView ? Colors.white70 : const Color(0xFFF1C40F),
+            unselectedItemColor: Colors.white70,
+            showUnselectedLabels: true,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: "Inicio"),
+              BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: "Catálogo"),
+              BottomNavigationBarItem(icon: Icon(Icons.print), label: "Impresiones"),
+              BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Carrito"),
+              BottomNavigationBarItem(icon: Icon(Icons.history), label: "Historial"),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AppUser? user) {
+  Widget _buildUserMiniProfile(AppUser? user) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(user?.name ?? "", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+        Text(user?.role.toUpperCase() ?? "", style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 9)),
+      ],
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, AppUser? user, bool isEmployee, bool isAdmin) {
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
@@ -136,6 +181,26 @@ class _MainNavigationState extends State<MainNavigation> {
               child: Icon(Icons.person, size: 40, color: Color(0xFF1A4661)),
             ),
           ),
+          if (isEmployee) ...[
+            ListTile(
+              leading: const Icon(Icons.inventory, color: Color(0xFF1A4661)),
+              title: const Text("Gestión de Inventario"),
+              onTap: () => _openManagement(const ProductosPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.miscellaneous_services, color: Color(0xFF1A4661)),
+              title: const Text("Gestión de Servicios"),
+              onTap: () => _openManagement(const TramitesPage()),
+            ),
+          ],
+          if (isAdmin)
+            ListTile(
+              leading: const Icon(Icons.people, color: Color(0xFF1A4661)),
+              title: const Text("Gestión de Usuarios"),
+              onTap: () => _openManagement(const AdminUsuariosPage()),
+            ),
+          const Spacer(),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Color(0xFF1A4661)),
             title: const Text("Cerrar Sesión"),
@@ -149,47 +214,9 @@ class _MainNavigationState extends State<MainNavigation> {
               }
             },
           ),
+          const SizedBox(height: 20),
         ],
       ),
-    );
-  }
-
-  Widget _buildMobileHeader(AppUser? user) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text("El Principito",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            _buildUploadButton(true),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildSearchBar(),
-      ],
-    );
-  }
-
-  Widget _buildWebHeader(AppUser? user) {
-    return Row(
-      children: [
-        const Text("El Principito",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-        const SizedBox(width: 30),
-        Expanded(child: _buildSearchBar()),
-        const SizedBox(width: 30),
-        _buildUploadButton(false),
-        const SizedBox(width: 20),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(user?.name ?? "", style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-            Text(user?.role.toUpperCase() ?? "", style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 10)),
-          ],
-        ),
-      ],
     );
   }
 
@@ -201,8 +228,8 @@ class _MainNavigationState extends State<MainNavigation> {
         onChanged: (value) => searchQuery.value = value,
         decoration: const InputDecoration(
           hintText: "Buscar...",
-          hintStyle: TextStyle(fontSize: 16, color: Colors.grey),
-          prefixIcon: Icon(Icons.search, size: 20, color: Color(0xFF1A4661)),
+          hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
+          prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF1A4661)),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 10),
         ),
@@ -213,8 +240,8 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget _buildUploadButton(bool small) {
     return Builder(
       builder: (context) {
-        return SizedBox(
-          height: 38,
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: ElevatedButton.icon(
             onPressed: () async {
               FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -224,19 +251,22 @@ class _MainNavigationState extends State<MainNavigation> {
 
               if (result != null && result.files.single.path != null) {
                 archivoSeleccionado.value = result.files.single.path;
-                DefaultTabController.of(context)?.animateTo(2);
+                setState(() {
+                  _selectedIndex = 2; // Impresiones
+                  _isManagementView = false;
+                });
               }
             },
-            icon: const Icon(Icons.upload, size: 20),
+            icon: const Icon(Icons.upload, size: 18),
             label: Text(
               small ? "Subir" : "Subir Impresión",
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 12),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xFF1A4661),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               elevation: 0,
             ),
           ),

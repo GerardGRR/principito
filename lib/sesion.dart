@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'main.dart';
 import 'registro.dart';
 import 'database/firebase_service.dart';
@@ -21,6 +22,36 @@ class _LoginscreenState extends State<Loginscreen> {
   String? _userError;
   String? _passwordError;
   bool _isLoading = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedUser();
+  }
+
+  Future<void> _loadRememberedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _rememberMe = prefs.getBool('remember_me') ?? false;
+      if (_rememberMe) {
+        userController.text = prefs.getString('remembered_user') ?? "";
+        passwordController.text = prefs.getString('remembered_password') ?? "";
+      }
+    });
+  }
+
+  Future<void> _saveRememberedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('remember_me', _rememberMe);
+    if (_rememberMe) {
+      await prefs.setString('remembered_user', userController.text.trim());
+      await prefs.setString('remembered_password', passwordController.text.trim());
+    } else {
+      await prefs.remove('remembered_user');
+      await prefs.remove('remembered_password');
+    }
+  }
 
   Future<void> login() async {
     setState(() {
@@ -67,6 +98,7 @@ class _LoginscreenState extends State<Loginscreen> {
       );
 
       if (userCredential.user != null) {
+        await _saveRememberedUser();
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -150,6 +182,8 @@ class _LoginscreenState extends State<Loginscreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                _buildRememberMeCheckbox(Colors.white),
                 const SizedBox(height: 20),
                 Center(
                   child: TextButton(
@@ -184,7 +218,9 @@ class _LoginscreenState extends State<Loginscreen> {
           buildTextField("Usuario o Correo", controller: userController, errorText: _userError),
           const SizedBox(height: 15),
           buildTextField("Contraseña", isPassword: true, controller: passwordController, errorText: _passwordError),
-          const SizedBox(height: 25),
+          const SizedBox(height: 10),
+          _buildRememberMeCheckbox(Colors.white),
+          const SizedBox(height: 15),
           SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
             onPressed: _isLoading ? null : login,
             style: ElevatedButton.styleFrom(
@@ -201,6 +237,26 @@ class _LoginscreenState extends State<Loginscreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRememberMeCheckbox(Color textColor) {
+    return Row(
+      children: [
+        SizedBox(
+          height: 24,
+          width: 24,
+          child: Checkbox(
+            value: _rememberMe,
+            onChanged: (val) => setState(() => _rememberMe = val ?? false),
+            activeColor: const Color(0xFFF4D03F),
+            checkColor: const Color(0xFF1A4661),
+            side: BorderSide(color: textColor, width: 1.5),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text("Recordar sesión", style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 
