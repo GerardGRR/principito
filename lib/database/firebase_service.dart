@@ -38,7 +38,6 @@ class FirebaseService {
   }
 
   Future<void> updateUserRole(String uid, String newRole) async {
-    // Ensure we don't remove the last admin
     if (newRole != 'administrador') {
       QuerySnapshot admins = await _firestore.collection('usuarios')
           .where('role', isEqualTo: 'administrador').get();
@@ -143,7 +142,10 @@ class FirebaseService {
       date: sale.date,
     );
 
-    batch.set(saleRef, saleWithId.toMap());
+    Map<String, dynamic> data = saleWithId.toMap();
+    data['isReturned'] = false; // Flag to prevent multiple returns
+
+    batch.set(saleRef, data);
 
     for (var product in sale.products) {
       if (product.productId != null && product.isQuantifiable == 1) {
@@ -157,13 +159,70 @@ class FirebaseService {
     await batch.commit();
   }
 
+  Future<void> registerReturn(Sale originalSale, Map<String, int> returns, String reason) async {
+    WriteBatch batch = _firestore.batch();
+    
+    // Check if already returned (safety check, should be handled by UI too)
+    DocumentReference originalRef = _firestore.collection('sales').doc(originalSale.saleId);
+    batch.update(originalRef, {'isReturned': true});
+
+    double refundTotal = 0;
+    List<Product> returnedProducts = [];
+
+    returns.forEach((productId, qty) {
+      if (qty > 0) {
+        DocumentReference prodRef = _firestore.collection('products').doc(productId);
+        batch.update(prodRef, {
+          'quantity': FieldValue.increment(qty)
+        });
+        
+        var p = originalSale.products.firstWhere((element) => element.productId == productId);
+        refundTotal += (p.price * qty);
+        returnedProducts.add(p.copyWith(quantity: qty));
+      }
+    });
+
+    DocumentReference returnRef = _firestore.collection('sales').doc();
+    
+    Sale returnRecord = Sale(
+      saleId: returnRef.id,
+      dailyId: "DEV-${originalSale.dailyId}", 
+      products: returnedProducts,
+      services: [], 
+      total: -refundTotal,
+      userId: originalSale.userId,
+      userName: "DEVOLUCIÓN: ${originalSale.userName} (Motivo: $reason)",
+      date: DateTime.now().toIso8601String(),
+    );
+
+    Map<String, dynamic> returnData = returnRecord.toMap();
+    returnData['isReturned'] = true; // Returns themselves cannot be returned
+
+    batch.set(returnRef, returnData);
+
+    await batch.commit();
+  }
+
   Stream<List<Sale>> getSales() {
     return _firestore.collection('sales')
         .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => Sale.fromMap(doc.data(), doc.id))
+            .map((doc) {
+              final data = doc.data();
+              // Create sale object and inject the 'isReturned' field if needed
+              // or handle it in the model. Let's handle it here for now or update Sale model.
+              return Sale.fromMap(data, doc.id);
+            })
             .toList());
+  }
+
+  Future<bool> isSaleReturned(String saleId) async {
+    DocumentSnapshot doc = await _firestore.collection('sales').doc(saleId).get();
+    if (doc.exists) {
+      return (doc.data() as Map<String, dynamic>)['isReturned'] ?? false;
+    }
+    return false;
   }
 
   Future<void> deleteSale(String saleId) async {

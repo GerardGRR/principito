@@ -10,16 +10,18 @@ class Sale {
   final String userId;
   final String userName; // "Vendido por"
   final String date;
+  final bool isReturned; // New field
 
   Sale({
     this.saleId,
-    this.dailyId, // Ahora es opcional en el constructor
+    this.dailyId,
     required this.products,
     required this.services,
     required this.total,
     required this.userId,
     required this.userName,
     required this.date,
+    this.isReturned = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +34,7 @@ class Sale {
       'userId': userId,
       'userName': userName,
       'date': date,
+      'isReturned': isReturned,
     };
   }
 
@@ -49,6 +52,7 @@ class Sale {
       userId: map['userId'] ?? '',
       userName: map['userName'] ?? 'Desconocido',
       date: map['date'] ?? '',
+      isReturned: map['isReturned'] ?? false,
     );
   }
 }

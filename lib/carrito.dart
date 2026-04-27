@@ -15,28 +15,68 @@ class _CarritoPageState extends State<CarritoPage> {
   final FirebaseService _firebaseService = FirebaseService();
   final CartManager _cartManager = CartManager();
 
+  Future<void> _showConfirmDialog({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+    Color confirmColor = const Color(0xFF1A4661),
+  }) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCELAR", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: confirmColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirm();
+            },
+            child: const Text("CONFIRMAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _checkout() async {
     if (_cartManager.products.value.isEmpty && _cartManager.services.value.isEmpty) return;
 
-    AppUser? user = await _firebaseService.getCurrentUserData();
-    
-    final sale = Sale(
-      products: List.from(_cartManager.products.value),
-      services: List.from(_cartManager.services.value),
-      total: _cartManager.total,
-      userId: user?.uid ?? "unknown",
-      userName: user?.name ?? "Desconocido",
-      date: DateTime.now().toIso8601String(),
+    _showConfirmDialog(
+      title: "Confirmar Compra",
+      message: "¿Estás seguro de procesar esta venta por un total de \$${_cartManager.total.toStringAsFixed(2)}?",
+      onConfirm: () async {
+        AppUser? user = await _firebaseService.getCurrentUserData();
+        
+        final sale = Sale(
+          products: List.from(_cartManager.products.value),
+          services: List.from(_cartManager.services.value),
+          total: _cartManager.total,
+          userId: user?.uid ?? "unknown",
+          userName: user?.name ?? "Desconocido",
+          date: DateTime.now().toIso8601String(),
+        );
+
+        await _firebaseService.registerSale(sale);
+        _cartManager.clear();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Venta realizada con éxito"), behavior: SnackBarBehavior.floating),
+          );
+        }
+      },
     );
-
-    await _firebaseService.registerSale(sale);
-    _cartManager.clear();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Venta realizada con éxito"), behavior: SnackBarBehavior.floating),
-      );
-    }
   }
 
   @override
@@ -55,7 +95,16 @@ class _CarritoPageState extends State<CarritoPage> {
                 const Text("Resumen de tu pedido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: () => _cartManager.clear(),
+                  onPressed: () {
+                    if (_cartManager.products.value.isNotEmpty || _cartManager.services.value.isNotEmpty) {
+                      _showConfirmDialog(
+                        title: "Vaciar Carrito",
+                        message: "¿Deseas eliminar todos los artículos del carrito?",
+                        confirmColor: Colors.red,
+                        onConfirm: () => _cartManager.clear(),
+                      );
+                    }
+                  },
                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                   label: const Text("Vaciar", style: TextStyle(color: Colors.red)),
                 )
