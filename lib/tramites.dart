@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'database/database_helper.dart';
+import 'database/firebase_service.dart';
 import 'models/service.dart';
+import 'models/sale.dart';
 
 class TramitesPage extends StatefulWidget {
   const TramitesPage({super.key});
@@ -13,34 +14,94 @@ class TramitesPage extends StatefulWidget {
 }
 
 class _TramitesPageState extends State<TramitesPage> {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _picker = ImagePicker();
   List<Service> _services = [];
   bool _isEditingMode = false;
   bool _isDeletingMode = false;
-  final Set<int> _selectedForDelete = {};
+  bool _isSaleMode = false;
+  final Set<String> _selectedForDelete = {};
+  final Map<String, int> _selectedForSale = {}; // serviceId -> cantidad
 
   final Color _azulMarino = const Color(0xFF1A4661);
   final Color _azulClaro = const Color(0xFF5D9BBD);
 
   @override
-  void initState() {
-    super.initState();
-    _loadServices();
-  }
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: StreamBuilder<List<Service>>(
+        stream: _firebaseService.getServices(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+          _services = snapshot.data ?? [];
 
-  Future<void> _loadServices() async {
-    final services = await _dbHelper.getServices();
-    setState(() {
-      _services = services;
-    });
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    _buildServicesGrid(),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+              if (_isDeletingMode && _selectedForDelete.isNotEmpty)
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton.icon(
+                    onPressed: _confirmDeletion,
+                    icon: const Icon(Icons.delete_forever),
+                    label: Text("Eliminar Seleccionados (${_selectedForDelete.length})"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              if (_isSaleMode && _selectedForSale.isNotEmpty)
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton.icon(
+                    onPressed: _showSaleSummaryDialog,
+                    icon: const Icon(Icons.point_of_sale),
+                    label: Text("Registrar Venta - Total: \$${_calculateSaleTotal().toStringAsFixed(2)}"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF1C40F),
+                      foregroundColor: const Color(0xFF1A4661),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: _buildFabMenu(),
+    );
   }
 
   void _toggleEditingMode() {
     setState(() {
       _isEditingMode = !_isEditingMode;
       _isDeletingMode = false;
+      _isSaleMode = false;
       _selectedForDelete.clear();
+      _selectedForSale.clear();
     });
     _showSnackBar(_isEditingMode ? "Modo edición activado" : "Modo edición desactivado");
   }
@@ -49,9 +110,22 @@ class _TramitesPageState extends State<TramitesPage> {
     setState(() {
       _isDeletingMode = !_isDeletingMode;
       _isEditingMode = false;
+      _isSaleMode = false;
       _selectedForDelete.clear();
+      _selectedForSale.clear();
     });
     _showSnackBar(_isDeletingMode ? "Selecciona servicios para eliminar" : "Modo eliminación desactivado");
+  }
+
+  void _toggleSaleMode() {
+    setState(() {
+      _isSaleMode = !_isSaleMode;
+      _isEditingMode = false;
+      _isDeletingMode = false;
+      _selectedForDelete.clear();
+      _selectedForSale.clear();
+    });
+    _showSnackBar(_isSaleMode ? "Modo venta activado. Selecciona servicios" : "Modo venta desactivado");
   }
 
   void _showSnackBar(String message) {
@@ -59,7 +133,7 @@ class _TramitesPageState extends State<TramitesPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.only(bottom: 80, left: 20, right: 20), // Eleva la snackbar
+        margin: const EdgeInsets.only(bottom: 80, left: 20, right: 20),
       ),
     );
   }
@@ -208,11 +282,10 @@ class _TramitesPageState extends State<TramitesPage> {
                         imagePath: selectedImagePath,
                       );
 
-                      if (isEditing) await _dbHelper.updateService(newService);
-                      else await _dbHelper.insertService(newService);
+                      if (isEditing) await _firebaseService.updateService(newService);
+                      else await _firebaseService.addService(newService);
 
                       Navigator.pop(context);
-                      _loadServices();
                       _showSnackBar(isEditing ? "Servicio actualizado" : "Servicio creado");
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: _azulMarino, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
@@ -227,50 +300,24 @@ class _TramitesPageState extends State<TramitesPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                _buildServicesGrid(),
-                const SizedBox(height: 100),
-              ],
-            ),
-          ),
-          if (_isDeletingMode && _selectedForDelete.isNotEmpty)
-            Positioned(bottom: 20, left: 20, right: 20,
-              child: ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text("Confirmar"),
-                        content: Text("¿Eliminar ${_selectedForDelete.length} servicios?"),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text("No")),
-                          TextButton(onPressed: () async {
-                            for (var id in _selectedForDelete) await _dbHelper.softDeleteService(id);
-                            Navigator.pop(context);
-                            _toggleDeletingMode();
-                            _loadServices();
-                          }, child: const Text("Sí", style: TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.delete_forever),
-                  label: Text("Eliminar Seleccionados (${_selectedForDelete.length})"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))),
-            ),
+  void _confirmDeletion() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirmar"),
+        content: Text("¿Eliminar ${_selectedForDelete.length} servicios?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("No")),
+          TextButton(onPressed: () async {
+            for (var id in _selectedForDelete) await _firebaseService.deleteService(id);
+            Navigator.pop(context);
+            setState(() {
+              _isDeletingMode = false;
+              _selectedForDelete.clear();
+            });
+          }, child: const Text("Sí", style: TextStyle(color: Colors.red))),
         ],
       ),
-      floatingActionButton: _buildFabMenu(),
     );
   }
 
@@ -278,8 +325,18 @@ class _TramitesPageState extends State<TramitesPage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (_isEditingMode || _isDeletingMode)
-          FloatingActionButton.small(onPressed: () => setState(() { _isEditingMode = false; _isDeletingMode = false; }), backgroundColor: Colors.grey, child: const Icon(Icons.close, color: Colors.white)),
+        if (_isEditingMode || _isDeletingMode || _isSaleMode)
+          FloatingActionButton.small(
+            onPressed: () => setState(() {
+              _isEditingMode = false;
+              _isDeletingMode = false;
+              _isSaleMode = false;
+              _selectedForSale.clear();
+              _selectedForDelete.clear();
+            }),
+            backgroundColor: Colors.grey,
+            child: const Icon(Icons.close, color: Colors.white),
+          ),
         const SizedBox(height: 10),
         FloatingActionButton(
           onPressed: () {},
@@ -290,11 +347,13 @@ class _TramitesPageState extends State<TramitesPage> {
               if (value == 'add') _showServiceForm();
               if (value == 'edit') _toggleEditingMode();
               if (value == 'delete') _toggleDeletingMode();
+              if (value == 'sell') _toggleSaleMode();
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'add', child: ListTile(leading: Icon(Icons.add), title: Text("Agregar"))),
               const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text("Editar"))),
               const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete), title: Text("Borrar"))),
+              const PopupMenuItem(value: 'sell', child: ListTile(leading: Icon(Icons.point_of_sale), title: Text("Vender"))),
             ],
           ),
         ),
@@ -309,7 +368,7 @@ class _TramitesPageState extends State<TramitesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Trámites y Servicios", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _azulMarino)),
-          Text(_isEditingMode ? "Selecciona un servicio para editar" : _isDeletingMode ? "Selecciona servicios para eliminar" : "Gestión de trámites digitales", style: const TextStyle(color: Colors.grey)),
+          Text(_isEditingMode ? "Selecciona un servicio para editar" : _isDeletingMode ? "Selecciona servicios para eliminar" : _isSaleMode ? "Modo venta activado" : "Gestión de trámites digitales", style: const TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -329,8 +388,20 @@ class _TramitesPageState extends State<TramitesPage> {
         return GestureDetector(
           onTap: () {
             if (_isEditingMode) _showServiceForm(service: service);
-            else if (_isDeletingMode) setState(() { if (isSelected) _selectedForDelete.remove(service.serviceId); else _selectedForDelete.add(service.serviceId!); });
-            else _launchURL(service.link);
+            else if (_isDeletingMode) {
+              setState(() {
+                if (isSelected) _selectedForDelete.remove(service.serviceId);
+                else if (service.serviceId != null) _selectedForDelete.add(service.serviceId!);
+              });
+            } else if (_isSaleMode) {
+              setState(() {
+                if (_selectedForSale.containsKey(service.serviceId)) {
+                  _selectedForSale.remove(service.serviceId);
+                } else if (service.serviceId != null) {
+                  _selectedForSale[service.serviceId!] = 1;
+                }
+              });
+            } else _launchURL(service.link);
           },
           child: Stack(
             children: [
@@ -343,11 +414,11 @@ class _TramitesPageState extends State<TramitesPage> {
                 ),
                 child: Column(
                   children: [
-                    Expanded(child: service.imagePath != null ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: Image.file(File(service.imagePath!), width: double.infinity, fit: BoxFit.cover)) : Icon(Icons.description_outlined, size: 40, color: Colors.grey.shade300)),
+                    Expanded(child: service.imagePath != null ? ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: File(service.imagePath!).existsSync() ? Image.file(File(service.imagePath!), width: double.infinity, fit: BoxFit.cover) : const Icon(Icons.image_not_supported)) : Icon(Icons.description_outlined, size: 40, color: Colors.grey.shade300)),
                     Padding(padding: const EdgeInsets.all(8.0), child: Column(children: [
                       Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                       Text("\$${service.price}", style: TextStyle(color: _azulMarino, fontSize: 12, fontWeight: FontWeight.bold)),
-                      if (service.link != null && service.link!.isNotEmpty)
+                      if (service.link != null && service.link!.isNotEmpty && !_isSaleMode)
                         const Icon(Icons.link, size: 14, color: Colors.blue),
                     ])),
                   ],
@@ -355,10 +426,141 @@ class _TramitesPageState extends State<TramitesPage> {
               ),
               if (_isEditingMode) const Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: Colors.blue, child: Icon(Icons.edit, size: 12, color: Colors.white))),
               if (_isDeletingMode) Positioned(top: 5, right: 5, child: CircleAvatar(radius: 12, backgroundColor: isSelected ? Colors.red : Colors.grey, child: Icon(isSelected ? Icons.check : Icons.delete, size: 12, color: Colors.white))),
+              if (_isSaleMode)
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: _selectedForSale.containsKey(service.serviceId) ? Colors.green : Colors.grey,
+                    child: Icon(_selectedForSale.containsKey(service.serviceId) ? Icons.check : Icons.add_shopping_cart, size: 12, color: Colors.white),
+                  ),
+                ),
+              if (_isSaleMode && _selectedForSale.containsKey(service.serviceId))
+                Positioned(
+                  bottom: 5,
+                  left: 5,
+                  right: 5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove, size: 16),
+                          onPressed: () {
+                            setState(() {
+                              if (_selectedForSale[service.serviceId!]! > 1) {
+                                _selectedForSale[service.serviceId!] = _selectedForSale[service.serviceId!]! - 1;
+                              } else {
+                                _selectedForSale.remove(service.serviceId);
+                              }
+                            });
+                          },
+                        ),
+                        Text("${_selectedForSale[service.serviceId!]}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.add, size: 16),
+                          onPressed: () {
+                            setState(() {
+                              _selectedForSale[service.serviceId!] = _selectedForSale[service.serviceId!]! + 1;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         );
       },
     );
+  }
+
+  double _calculateSaleTotal() {
+    double total = 0.0;
+    for (var entry in _selectedForSale.entries) {
+      final service = _services.firstWhere((s) => s.serviceId == entry.key);
+      total += service.price * entry.value;
+    }
+    return total;
+  }
+
+  void _showSaleSummaryDialog() {
+    final total = _calculateSaleTotal();
+    final selectedServices = _selectedForSale.entries.map((entry) {
+      final service = _services.firstWhere((s) => s.serviceId == entry.key);
+      return {'service': service, 'quantity': entry.value};
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Resumen de Venta de Servicios"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...selectedServices.map((item) {
+                final service = item['service'] as Service;
+                final qty = item['quantity'] as int;
+                return ListTile(
+                  dense: true,
+                  title: Text(service.name),
+                  subtitle: Text("Cantidad: $qty x \$${service.price}"),
+                  trailing: Text("\$${(service.price * qty).toStringAsFixed(2)}"),
+                );
+              }).toList(),
+              const Divider(),
+              ListTile(
+                title: const Text("Total", style: TextStyle(fontWeight: FontWeight.bold)),
+                trailing: Text("\$${total.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1A4661))),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _registerSale();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1C40F), foregroundColor: const Color(0xFF1A4661)),
+            child: const Text("Confirmar Venta"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _registerSale() async {
+    final selectedServices = _selectedForSale.entries.map((entry) {
+      final service = _services.firstWhere((s) => s.serviceId == entry.key);
+      return service.copyWith(quantity: entry.value);
+    }).toList();
+
+    final sale = Sale(
+      products: [],
+      services: selectedServices,
+      total: _calculateSaleTotal(),
+      userId: "1", // TODO: usar usuario autenticado
+      date: DateTime.now().toIso8601String(),
+    );
+
+    await _firebaseService.registerSale(sale);
+
+    setState(() {
+      _isSaleMode = false;
+      _selectedForSale.clear();
+    });
+
+    _showSnackBar("Venta registrada exitosamente");
   }
 }

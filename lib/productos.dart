@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'database/database_helper.dart';
+import 'database/firebase_service.dart';
 import 'models/product.dart';
 import 'models/sale.dart';
 
@@ -13,29 +13,96 @@ class ProductosPage extends StatefulWidget {
 }
 
 class _ProductosPageState extends State<ProductosPage> {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _picker = ImagePicker();
   List<Product> _products = [];
   bool _isEditingMode = false;
   bool _isDeletingMode = false;
   bool _isSaleMode = false;
-  final Set<int> _selectedForDelete = {};
-  final Map<int, int> _selectedForSale = {}; // productId -> cantidad
+  final Set<String> _selectedForDelete = {};
+  final Map<String, int> _selectedForSale = {}; // productId -> cantidad
 
   final Color _azulMarino = const Color(0xFF1A4661);
   final Color _azulClaro = const Color(0xFF5D9BBD);
 
   @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-  }
+  Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = screenWidth < 600 ? 2 : 4;
 
-  Future<void> _loadProducts() async {
-    final products = await _dbHelper.getProducts();
-    setState(() {
-      _products = products;
-    });
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: StreamBuilder<List<Product>>(
+        stream: _firebaseService.getProducts(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          }
+          _products = snapshot.data ?? [];
+
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(screenWidth),
+                    _buildProductGrid(crossAxisCount),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+              if (_isDeletingMode && _selectedForDelete.isNotEmpty)
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton.icon(
+                    onPressed: _confirmDeletion,
+                    icon: const Icon(Icons.delete_forever),
+                    label: Text(
+                      "Eliminar Seleccionados (${_selectedForDelete.length})",
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_isSaleMode && _selectedForSale.isNotEmpty)
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton.icon(
+                    onPressed: _showSaleSummaryDialog,
+                    icon: const Icon(Icons.point_of_sale),
+                    label: Text(
+                      "Registrar Venta - Total: \$${_calculateSaleTotal().toStringAsFixed(2)}",
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF1C40F),
+                      foregroundColor: const Color(0xFF1A4661),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: _buildFabMenu(),
+    );
   }
 
   void _toggleEditingMode() {
@@ -85,8 +152,7 @@ class _ProductosPageState extends State<ProductosPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-        SnackBarBehavior.floating, // Hace que el FAB suba automáticamente
+        behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
       ),
     );
@@ -418,12 +484,11 @@ class _ProductosPageState extends State<ProductosPage> {
                       );
 
                       if (isEditing)
-                        await _dbHelper.updateProduct(newProduct);
+                        await _firebaseService.updateProduct(newProduct);
                       else
-                        await _dbHelper.insertProduct(newProduct);
+                        await _firebaseService.addProduct(newProduct);
 
                       Navigator.pop(context);
-                      _loadProducts();
                       _showSnackBar(
                         isEditing ? "Producto actualizado" : "Producto creado",
                       );
@@ -467,10 +532,12 @@ class _ProductosPageState extends State<ProductosPage> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               for (var id in _selectedForDelete)
-                await _dbHelper.softDeleteProduct(id);
+                await _firebaseService.deleteProduct(id);
               Navigator.pop(context);
-              _toggleDeletingMode();
-              _loadProducts();
+              setState(() {
+                _isDeletingMode = false;
+                _selectedForDelete.clear();
+              });
               _showSnackBar("Productos eliminados");
             },
             child: const Text(
@@ -480,73 +547,6 @@ class _ProductosPageState extends State<ProductosPage> {
           ),
         ],
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth < 600 ? 2 : 4;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(screenWidth),
-                _buildProductGrid(crossAxisCount),
-                const SizedBox(height: 100),
-              ],
-            ),
-          ),
-          if (_isDeletingMode && _selectedForDelete.isNotEmpty)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: ElevatedButton.icon(
-                onPressed: _confirmDeletion,
-                icon: const Icon(Icons.delete_forever),
-                label: Text(
-                  "Eliminar Seleccionados (${_selectedForDelete.length})",
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
-          if (_isSaleMode && _selectedForSale.isNotEmpty)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: ElevatedButton.icon(
-                onPressed: _showSaleSummaryDialog,
-                icon: const Icon(Icons.point_of_sale),
-                label: Text(
-                  "Registrar Venta - Total: \$${_calculateSaleTotal().toStringAsFixed(2)}",
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF1C40F),
-                  foregroundColor: const Color(0xFF1A4661),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: _buildFabMenu(),
     );
   }
 
@@ -561,6 +561,7 @@ class _ProductosPageState extends State<ProductosPage> {
               _isDeletingMode = false;
               _isSaleMode = false;
               _selectedForSale.clear();
+              _selectedForDelete.clear();
             }),
             backgroundColor: Colors.grey,
             child: const Icon(Icons.close, color: Colors.white),
@@ -669,7 +670,7 @@ class _ProductosPageState extends State<ProductosPage> {
               setState(() {
                 if (isSelected)
                   _selectedForDelete.remove(product.productId);
-                else
+                else if (product.productId != null)
                   _selectedForDelete.add(product.productId!);
               });
             else if (_isSaleMode) {
@@ -680,7 +681,7 @@ class _ProductosPageState extends State<ProductosPage> {
               setState(() {
                 if (_selectedForSale.containsKey(product.productId)) {
                   _selectedForSale.remove(product.productId);
-                } else {
+                } else if (product.productId != null) {
                   _selectedForSale[product.productId!] = 1;
                 }
               });
@@ -719,11 +720,9 @@ class _ProductosPageState extends State<ProductosPage> {
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(12),
                         ),
-                        child: Image.file(
-                          File(product.imagePath!),
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                        child: File(product.imagePath!).existsSync() 
+                          ? Image.file(File(product.imagePath!), width: double.infinity, fit: BoxFit.cover)
+                          : const Icon(Icons.image_not_supported),
                       )
                           : Icon(
                         Icons.inventory_2,
@@ -851,7 +850,7 @@ class _ProductosPageState extends State<ProductosPage> {
                           icon: const Icon(Icons.add, size: 16),
                           onPressed: () {
                             setState(() {
-                              if (_selectedForSale[product.productId!]! <
+                              if (!product.isQuantifiable.isEven || _selectedForSale[product.productId!]! <
                                   product.quantity) {
                                 _selectedForSale[product.productId!] =
                                     _selectedForSale[product.productId!]! + 1;
@@ -956,25 +955,17 @@ class _ProductosPageState extends State<ProductosPage> {
       products: selectedProducts,
       services: [],
       total: _calculateSaleTotal(),
-      userId: 1, // TODO: usar usuario autenticado
+      userId: "1", // TODO: usar usuario autenticado
       date: DateTime.now().toIso8601String(),
     );
 
-    await _dbHelper.insertSale(sale);
-
-    // Descontar del inventario
-    for (var entry in _selectedForSale.entries) {
-      final product = _products.firstWhere((p) => p.productId == entry.key);
-      final newQty = product.quantity - entry.value;
-      await _dbHelper.updateProductQuantity(product.productId!, newQty);
-    }
+    await _firebaseService.registerSale(sale);
 
     setState(() {
       _isSaleMode = false;
       _selectedForSale.clear();
     });
 
-    _loadProducts();
     _showSnackBar("Venta registrada exitosamente");
   }
 }

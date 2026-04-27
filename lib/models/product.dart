@@ -1,5 +1,5 @@
 class Product {
-  final int? productId;
+  final String? productId;
   final String name;
   final String description;
   final int quantity;
@@ -8,8 +8,8 @@ class Product {
   final String brand;
   final String? imagePath;
   final int isActive;
-  final int isQuantifiable; // 1: Por cantidad numérica, 0: Solo disponibilidad (booleano)
-  final int isAvailable;    // Solo se usa si isQuantifiable es 0 (1: Disponible, 0: Agotado)
+  final int isQuantifiable;
+  final int isAvailable;
 
   Product({
     this.productId,
@@ -31,7 +31,7 @@ class Product {
       'name': name,
       'description': description,
       'quantity': quantity,
-      'tags': tags.join(','),
+      'tags': tags,
       'price': price,
       'brand': brand,
       'imagePath': imagePath,
@@ -41,14 +41,14 @@ class Product {
     };
   }
 
-  factory Product.fromMap(Map<String, dynamic> map) {
+  factory Product.fromMap(Map<String, dynamic> map, [String? id]) {
     return Product(
-      productId: map['productId'],
-      name: map['name'],
-      description: map['description'],
-      quantity: map['quantity'],
-      tags: (map['tags'] as String).split(','),
-      price: map['price'],
+      productId: id ?? map['productId'],
+      name: map['name'] ?? '',
+      description: map['description'] ?? '',
+      quantity: map['quantity'] ?? 0,
+      tags: map['tags'] is List ? List<String>.from(map['tags']) : (map['tags'] as String? ?? '').split(',').where((t) => t.isNotEmpty).toList(),
+      price: (map['price'] ?? 0.0).toDouble(),
       brand: map['brand'] ?? '',
       imagePath: map['imagePath'],
       isActive: map['isActive'] ?? 1,
@@ -58,7 +58,7 @@ class Product {
   }
 
   Product copyWith({
-    int? productId,
+    String? productId,
     String? name,
     String? description,
     int? quantity,
