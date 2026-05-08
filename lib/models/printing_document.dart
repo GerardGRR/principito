@@ -12,6 +12,10 @@ class PrintingDocument {
   final DateTime? markedAsPrintedAt;
   final String? markedAsPrintedBy;
   final List<String> downloadedByWorkers;
+  final int? numPages;
+  final String? pageRange;
+  final String? printColor;
+  final String? notes;
 
   PrintingDocument({
     required this.documentId,
@@ -25,6 +29,10 @@ class PrintingDocument {
     this.markedAsPrintedAt,
     this.markedAsPrintedBy,
     this.downloadedByWorkers = const [],
+    this.numPages,
+    this.pageRange,
+    this.printColor,
+    this.notes,
   });
 
   factory PrintingDocument.fromFirestore(DocumentSnapshot doc) {
@@ -43,6 +51,10 @@ class PrintingDocument {
           : null,
       markedAsPrintedBy: data['markedAsPrintedBy'],
       downloadedByWorkers: List<String>.from(data['downloadedByWorkers'] ?? []),
+      numPages: data['numPages'],
+      pageRange: data['pageRange'],
+      printColor: data['printColor'],
+      notes: data['notes'],
     );
   }
 
@@ -60,6 +72,10 @@ class PrintingDocument {
           : null,
       'markedAsPrintedBy': markedAsPrintedBy,
       'downloadedByWorkers': downloadedByWorkers,
+      'numPages': numPages,
+      'pageRange': pageRange,
+      'printColor': printColor,
+      'notes': notes,
     };
   }
 }

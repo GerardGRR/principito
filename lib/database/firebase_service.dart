@@ -290,22 +290,25 @@ class FirebaseService {
         );
   }
 
-  Future<void> uploadPrintingDocument(File file, String fileName) async {
+  Future<void> uploadPrintingDocument(
+    File file,
+    String fileName, {
+    int? numPages,
+    String? pageRange,
+    String? printColor,
+    String? notes,
+  }) async {
     try {
       User? user = _auth.currentUser;
       if (user == null) throw Exception("Usuario no autenticado");
 
-      // Obtenemos datos del usuario actual para saber quién sube el archivo
       AppUser? currentUser = await getCurrentUserData();
-
-      // Convertir archivo a Base64
       List<int> fileBytes = await file.readAsBytes();
       String base64File = base64Encode(fileBytes);
       String extension = fileName.contains('.')
           ? fileName.split('.').last
           : 'bin';
 
-      // Crear el mapa de datos directamente
       await _firestore.collection('impresiones').add({
         'fileName': fileName,
         'fileExtension': extension,
@@ -315,6 +318,10 @@ class FirebaseService {
         'uploadedAt': Timestamp.now(),
         'status': 'pendiente',
         'downloadedByWorkers': [],
+        'numPages': numPages,
+        'pageRange': pageRange,
+        'printColor': printColor,
+        'notes': notes,
       });
     } catch (e) {
       throw Exception("Error al subir archivo: $e");

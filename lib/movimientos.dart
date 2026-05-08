@@ -5,7 +5,6 @@ import 'models/user.dart';
 
 class MovimientosPage extends StatefulWidget {
   const MovimientosPage({super.key});
-
   @override
   State<MovimientosPage> createState() => _MovimientosPageState();
 }
@@ -29,20 +28,23 @@ class _MovimientosPageState extends State<MovimientosPage> {
         builder: (context, setDialogState) {
           bool isReturn = sale.dailyId?.startsWith("DEV-") ?? false;
           bool alreadyReturned = sale.isReturned;
-
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
             title: Column(
               children: [
                 Icon(
-                  isReturn ? Icons.assignment_return : Icons.receipt_long, 
-                  size: 50, 
-                  color: isReturn ? Colors.orange : const Color(0xFF1A4661)
+                  isReturn ? Icons.assignment_return : Icons.receipt_long,
+                  size: 50,
+                  color: isReturn ? Colors.orange : const Color(0xFF1A4661),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  isReturn ? "Devolución #${sale.dailyId}" : "Ticket #${sale.dailyId}", 
-                  style: const TextStyle(fontWeight: FontWeight.bold)
+                  isReturn
+                      ? "Devolución #${sale.dailyId}"
+                      : "Ticket #${sale.dailyId}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -58,39 +60,80 @@ class _MovimientosPageState extends State<MovimientosPage> {
                     if (alreadyReturned && !isReturn)
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
-                        child: Text("ESTADO: DEVUELTA", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          "ESTADO: DEVUELTA",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     const Divider(height: 30),
                     if (sale.products.isNotEmpty) ...[
-                      const Text("PRODUCTOS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ...sale.products.map((p) => ListTile(
-                        dense: true,
-                        title: Text(p.name),
-                        subtitle: Text("${p.quantity} x \$${p.price.toStringAsFixed(2)}"),
-                        trailing: Text("\$${(p.quantity * p.price).toStringAsFixed(2)}"),
-                      )),
+                      const Text(
+                        "PRODUCTOS",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      ...sale.products.map(
+                        (p) => ListTile(
+                          dense: true,
+                          title: Text(p.name),
+                          subtitle: Text(
+                            "${p.quantity} x \$${p.price.toStringAsFixed(2)}",
+                          ),
+                          trailing: Text(
+                            "\$${(p.quantity * p.price).toStringAsFixed(2)}",
+                          ),
+                        ),
+                      ),
                     ],
                     if (sale.services.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      const Text("SERVICIOS (No reembolsables)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
-                      ...sale.services.map((s) => ListTile(
-                        dense: true,
-                        title: Text(s.name),
-                        subtitle: Text("${s.quantity} x \$${s.price.toStringAsFixed(2)}"),
-                        trailing: Text("\$${(s.quantity * s.price).toStringAsFixed(2)}"),
-                      )),
+                      const Text(
+                        "SERVICIOS (No reembolsables)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      ...sale.services.map(
+                        (s) => ListTile(
+                          dense: true,
+                          title: Text(s.name),
+                          subtitle: Text(
+                            "${s.quantity} x \$${s.price.toStringAsFixed(2)}",
+                          ),
+                          trailing: Text(
+                            "\$${(s.quantity * s.price).toStringAsFixed(2)}",
+                          ),
+                        ),
+                      ),
                     ],
                     const Divider(height: 30),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("TOTAL", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text("\$${sale.total.toStringAsFixed(2)}", 
+                        const Text(
+                          "TOTAL",
                           style: TextStyle(
-                            fontSize: 18, 
-                            fontWeight: FontWeight.bold, 
-                            color: isReturn ? Colors.red : const Color(0xFF1A4661)
-                          )),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "\$${sale.total.toStringAsFixed(2)}",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isReturn
+                                ? Colors.red
+                                : const Color(0xFF1A4661),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -103,12 +146,17 @@ class _MovimientosPageState extends State<MovimientosPage> {
                   onPressed: () => _showReturnDialog(sale),
                   icon: const Icon(Icons.keyboard_return, color: Colors.white),
                   label: const Text("REGISTRAR DEVOLUCIÓN"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
                 ),
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar")),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cerrar"),
+              ),
             ],
           );
-        }
+        },
       ),
     );
   }
@@ -131,11 +179,21 @@ class _MovimientosPageState extends State<MovimientosPage> {
             children: [
               const Text("Se creará un registro espejo de devolución."),
               const SizedBox(height: 10),
-              const Text("Artículos a devolver (stock reintegrado):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text(
+                "Artículos a devolver (stock reintegrado):",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
               ...sale.products.map((p) => Text("• ${p.name} (x${p.quantity})")),
               if (sale.services.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                const Text("Nota: Los servicios NO se reembolsan ni se reintegran.", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Nota: Los servicios NO se reembolsan ni se reintegran.",
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
               const SizedBox(height: 20),
               TextField(
@@ -151,19 +209,32 @@ class _MovimientosPageState extends State<MovimientosPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCELAR"),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () async {
               if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Por favor ingresa un motivo")));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Por favor ingresa un motivo")),
+                );
                 return;
               }
-              await _firebaseService.registerReturn(sale, returns, reasonController.text.trim());
+              await _firebaseService.registerReturn(
+                sale,
+                returns,
+                reasonController.text.trim(),
+              );
               if (mounted) {
                 Navigator.pop(context); // Cierra confirmación
                 Navigator.pop(context); // Cierra detalle
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Devolución registrada exitosamente")));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Devolución registrada exitosamente"),
+                  ),
+                );
               }
             },
             child: const Text("CONFIRMAR DEVOLUCIÓN"),
@@ -190,8 +261,18 @@ class _MovimientosPageState extends State<MovimientosPage> {
               children: [
                 Icon(Icons.lock_person, size: 80, color: Colors.grey),
                 SizedBox(height: 20),
-                Text("Acceso Restringido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-                Text("Solo empleados pueden ver el historial.", style: TextStyle(color: Colors.grey)),
+                Text(
+                  "Acceso Restringido",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  "Solo empleados pueden ver el historial.",
+                  style: TextStyle(color: Colors.grey),
+                ),
               ],
             ),
           );
@@ -203,13 +284,18 @@ class _MovimientosPageState extends State<MovimientosPage> {
             stream: _firebaseService.getSales(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF1A4661)));
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF1A4661)),
+                );
               }
               if (snapshot.hasError) {
                 return Center(child: Text("Error: ${snapshot.error}"));
               }
               final sales = snapshot.data ?? [];
-              double totalSales = sales.fold(0, (sum, item) => sum + item.total);
+              double totalSales = sales.fold(
+                0,
+                (sum, item) => sum + item.total,
+              );
 
               return Column(
                 children: [
@@ -221,25 +307,38 @@ class _MovimientosPageState extends State<MovimientosPage> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         "Registro de Movimientos",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A4661)),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A4661),
+                        ),
                       ),
                     ),
                   ),
                   Expanded(
                     child: sales.isEmpty
-                        ? const Center(child: Text("No hay ventas registradas", style: TextStyle(color: Colors.grey, fontSize: 16)))
+                        ? const Center(
+                            child: Text(
+                              "No hay ventas registradas",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                              ),
+                            ),
+                          )
                         : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: sales.length,
-                      itemBuilder: (context, index) => _buildTransactionCard(sales[index], isAdmin),
-                    ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: sales.length,
+                            itemBuilder: (context, index) =>
+                                _buildTransactionCard(sales[index], isAdmin),
+                          ),
                   ),
                 ],
               );
             },
           ),
         );
-      }
+      },
     );
   }
 
@@ -248,14 +347,26 @@ class _MovimientosPageState extends State<MovimientosPage> {
       width: double.infinity,
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(color: const Color(0xFF1A4661), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A4661),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Balance Total (Ventas - Devoluciones)", style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text(
+            "Balance Total (Ventas - Devoluciones)",
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           const SizedBox(height: 8),
-          Text("\$${totalSales.toStringAsFixed(2)}",
-            style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 30, fontWeight: FontWeight.bold)),
+          Text(
+            "\$${totalSales.toStringAsFixed(2)}",
+            style: const TextStyle(
+              color: Color(0xFFF1C40F),
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -268,31 +379,46 @@ class _MovimientosPageState extends State<MovimientosPage> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15), 
-        side: BorderSide(color: isReturn ? Colors.orange.shade100 : (alreadyReturned ? Colors.red.shade50 : Colors.grey.shade200))
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(
+          color: isReturn
+              ? Colors.orange.shade100
+              : (alreadyReturned ? Colors.red.shade50 : Colors.grey.shade200),
+        ),
       ),
       child: ListTile(
         onTap: () => _showSaleDetails(sale, isAdmin),
         leading: CircleAvatar(
-          backgroundColor: isReturn ? Colors.orange.shade100 : (alreadyReturned ? Colors.red.shade50 : const Color(0xFFF1C40F)),
+          backgroundColor: isReturn
+              ? Colors.orange.shade100
+              : (alreadyReturned
+                    ? Colors.red.shade50
+                    : const Color(0xFFF1C40F)),
           child: Icon(
-            isReturn ? Icons.assignment_return : Icons.receipt, 
-            color: const Color(0xFF1A4661), 
-            size: 20
+            isReturn ? Icons.assignment_return : Icons.receipt,
+            color: const Color(0xFF1A4661),
+            size: 20,
           ),
         ),
         title: Text(
-          isReturn ? "Devolución #${sale.dailyId}" : "Venta #${sale.dailyId}", 
+          isReturn ? "Devolución #${sale.dailyId}" : "Venta #${sale.dailyId}",
           style: TextStyle(
-            fontWeight: FontWeight.bold, 
-            color: isReturn ? Colors.orange.shade900 : (alreadyReturned ? Colors.red.shade900 : Colors.black),
-            decoration: alreadyReturned && !isReturn ? TextDecoration.lineThrough : null
-          )
+            fontWeight: FontWeight.bold,
+            color: isReturn
+                ? Colors.orange.shade900
+                : (alreadyReturned ? Colors.red.shade900 : Colors.black),
+            decoration: alreadyReturned && !isReturn
+                ? TextDecoration.lineThrough
+                : null,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(sale.userName, style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+            Text(
+              sale.userName,
+              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+            ),
             Text(_formatDate(sale.date), style: const TextStyle(fontSize: 11)),
           ],
         ),
@@ -300,12 +426,17 @@ class _MovimientosPageState extends State<MovimientosPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("\$${sale.total.toStringAsFixed(2)}", 
+            Text(
+              "\$${sale.total.toStringAsFixed(2)}",
               style: TextStyle(
-                fontWeight: FontWeight.bold, 
-                color: isReturn ? Colors.red : const Color(0xFF1A4661)
-              )),
-            const Text("Ver detalle >", style: TextStyle(fontSize: 10, color: Colors.blue)),
+                fontWeight: FontWeight.bold,
+                color: isReturn ? Colors.red : const Color(0xFF1A4661),
+              ),
+            ),
+            const Text(
+              "Ver detalle >",
+              style: TextStyle(fontSize: 10, color: Colors.blue),
+            ),
           ],
         ),
       ),
