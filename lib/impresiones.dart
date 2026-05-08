@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdfx/pdfx.dart';
-import 'main.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'database/firebase_service.dart';
+import 'models/printing_document.dart';
+import 'models/user.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 class ImpresionesPage extends StatefulWidget {
   const ImpresionesPage({super.key});
@@ -11,552 +16,555 @@ class ImpresionesPage extends StatefulWidget {
 }
 
 class _ImpresionesPageState extends State<ImpresionesPage> {
-  final ScrollController _scrollController = ScrollController();
-
-  // --- VARIABLES PARA EL MANEJO DE PÁGINAS ---
-  final TextEditingController _paginasController = TextEditingController(
-    text: "Todas",
-  );
-  String? _errorPaginas; // Para mostrar el mensaje en rojo si hay error
-
-  List<Uint8List> _paginasImagenes = [];
-  String _nombreArchivo = "Ningún archivo seleccionado";
-  String _rutaArchivo = "";
-  bool _estaCargando = false;
-
-  String _tamanoPapel = "Carta";
-  bool _aColor = true;
-  int _copias = 1;
-
-  Future<void> _procesarArchivoDesdeRuta(String ruta, String nombre) async {
-    setState(() {
-      _estaCargando = true;
-      _nombreArchivo = nombre;
-      _rutaArchivo = ruta;
-      _paginasController.text = "Todas";
-    });
-
-    try {
-      final document = await PdfDocument.openFile(ruta);
-      List<Uint8List> imagenesTemp = [];
-
-      int maxPages = document.pagesCount > 20 ? 20 : document.pagesCount;
-
-      for (int i = 1; i <= maxPages; i++) {
-        final page = await document.getPage(i);
-        final pageImage = await page.render(
-          width: page.width * 1.5,
-          height: page.height * 1.5,
-          format: PdfPageImageFormat.jpeg,
-        );
-        if (pageImage != null) imagenesTemp.add(pageImage.bytes);
-        await page.close();
-      }
-
-      setState(() {
-        _paginasImagenes = imagenesTemp;
-        _estaCargando = false;
-      });
-    } catch (e) {
-      setState(() => _estaCargando = false);
-    }
-  }
-
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = false;
+  AppUser? _currentUser;
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      archivoSeleccionado.addListener(_escucharArchivo);
-
-      // EXTRA: por si ya había archivo antes
-      _escucharArchivo();
-    });
+    _loadCurrentUser();
   }
 
-  void _escucharArchivo() {
-    final ruta = archivoSeleccionado.value;
-
-    if (ruta != null && ruta.isNotEmpty) {
-      final nombre = ruta.split('/').last;
-
-      _procesarArchivoDesdeRuta(ruta, nombre);
-      // esperar antes de limpiar (clave)
-      Future.delayed(const Duration(milliseconds: 300), () {
-        archivoSeleccionado.value = null;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    archivoSeleccionado.removeListener(_escucharArchivo);
-    super.dispose();
-  }
-  //---------------------------
-
-  // --- LÓGICA DE VALIDACIÓN DEL RANGO ---
-  void _validarRango(String valor, int totalPDF) {
-    if (valor.toLowerCase().trim() == "todas" || valor.isEmpty) {
-      setState(() => _errorPaginas = null);
-      return;
-    }
-
-    try {
-      List<String> partes = valor.split(',');
-      for (var parte in partes) {
-        parte = parte.trim();
-        if (parte.contains('-')) {
-          List<String> rango = parte.split('-');
-          int inicio = int.parse(rango[0].trim());
-          int fin = int.parse(rango[1].trim());
-          if (inicio > totalPDF ||
-              fin > totalPDF ||
-              inicio > fin ||
-              inicio <= 0)
-            throw Exception();
-        } else {
-          int p = int.parse(parte);
-          if (p > totalPDF || p <= 0) throw Exception();
-        }
-      }
-      setState(() => _errorPaginas = null);
-    } catch (e) {
-      setState(() => _errorPaginas = "Rango inválido (Ej: 1-5 o 1,3)");
-    }
-  }
-
-  Future<void> _seleccionarYProcesarArchivo() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-    if (result != null && result.files.single.path != null) {
+  Future<void> _loadCurrentUser() async {
+    final user = await _firebaseService.getCurrentUserData();
+    if (mounted) {
       setState(() {
-        _estaCargando = true;
-        _nombreArchivo = result.files.single.name;
-        _rutaArchivo = result.files.single.path!;
-        _paginasController.text = "Todas"; // Reiniciar al subir nuevo
+        _currentUser = user;
       });
+    }
+  }
 
-      try {
-        final document = await PdfDocument.openFile(_rutaArchivo);
-        List<Uint8List> imagenesTemp = [];
+  bool get _isAdmin => _currentUser?.role == 'administrador';
 
-        for (int i = 1; i <= document.pagesCount; i++) {
-          final page = await document.getPage(i);
-          final pageImage = await page.render(
-            width: page.width * 1.5,
-            height: page.height * 1.5,
-            format: PdfPageImageFormat.jpeg,
+  Future<void> _uploadDocument() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'pdf',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+          'ppt',
+          'pptx',
+          'txt',
+          'jpg',
+          'png',
+        ],
+      );
+      if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        setState(() => _isLoading = true);
+        final file = File(result.files.single.path!);
+        final fileName = result.files.single.name;
+        await _firebaseService.uploadPrintingDocument(file, fileName);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ Documento subido exitosamente'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
           );
-          if (pageImage != null) imagenesTemp.add(pageImage.bytes);
-          await page.close();
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✗ Error: $e'),
 
-        setState(() {
-          _paginasImagenes = imagenesTemp;
-          _estaCargando = false;
-        });
-      } catch (e) {
-        setState(() => _estaCargando = false);
+            backgroundColor: Colors.red,
+
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
 
-  void _mostrarOpciones() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled:
-          true, // Importante para que el teclado no tape el diseño
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom + 25,
-                left: 25,
-                right: 25,
-                top: 25,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Opciones de Impresión",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2A6B91),
-                    ),
-                  ),
-                  Divider(),
+  Future<bool> _requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      // Importante: Importa 'package:device_info_plus/device_info_plus.dart'
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
 
-                  // --- CAMPO DE TEXTO PARA PÁGINAS ---
-                  Text(
-                    "Páginas a imprimir:",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: _paginasController,
-                    decoration: InputDecoration(
-                      hintText: "Ej: 1, 3, 5-10 o Todas",
-                      errorText: _errorPaginas,
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.pages_outlined),
-                    ),
-                    onChanged: (val) {
-                      _validarRango(val, _paginasImagenes.length);
-                      setModalState(() {}); // Actualiza el modal en tiempo real
-                    },
-                  ),
+      // Si es Android 11 (SDK 30) o superior
+      if (androidInfo.version.sdkInt >= 30) {
+        // Intentamos pedir el permiso de "Administrar todos los archivos"
+        var status = await Permission.manageExternalStorage.status;
+        if (!status.isGranted) {
+          status = await Permission.manageExternalStorage.request();
+        }
+        return status.isGranted;
+      } else {
+        // Para Android 10 o inferior usamos el normal
+        var status = await Permission.storage.status;
+        if (!status.isGranted) {
+          status = await Permission.storage.request();
+        }
+        return status.isGranted;
+      }
+    }
+    return true;
+  }
 
-                  SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Número de copias:", style: TextStyle(fontSize: 16)),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _copias > 1
-                                ? () {
-                                    setModalState(() => _copias--);
-                                    setState(() {});
-                                  }
-                                : null,
-                            icon: Icon(
-                              Icons.remove_circle_outline,
-                              color: Colors.redAccent,
-                            ),
-                          ),
-                          Text(
-                            "$_copias",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              setModalState(() => _copias++);
-                              setState(() {});
-                            },
-                            icon: Icon(
-                              Icons.add_circle_outline,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+  Future<void> _downloadDocument(PrintingDocument doc) async {
+    try {
+      final hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        // ... mensaje de error de permisos ...
+        return;
+      }
+      setState(() => _isLoading = true);
+      final bytes = await _firebaseService.getPrintingDocumentBytes(
+        doc.fileData,
+      );
+      // Usamos getApplicationDocumentsDirectory para evitar problemas de permisos
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/${doc.fileName}';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
 
-                  DropdownButtonFormField<String>(
-                    value: _tamanoPapel,
-                    decoration: InputDecoration(labelText: "Tamaño de papel"),
-                    items: ["Carta", "Oficio", "A4"]
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: (val) => setState(() => _tamanoPapel = val!),
-                  ),
-                  SwitchListTile(
-                    title: Text("Impresión a Color"),
-                    value: _aColor,
-                    activeColor: Color(0xFFF1C40F),
-                    onChanged: (val) {
-                      setState(() => _aColor = val);
-                      setModalState(() {});
-                    },
-                  ),
-                  SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF2A6B91),
-                        foregroundColor: Colors.white,
-                      ),
-                      // Deshabilita el botón si hay error en las páginas
-                      onPressed: _errorPaginas == null
-                          ? () => Navigator.pop(context)
-                          : null,
-                      child: Text("Guardar Configuración"),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+      // Registrar descarga en Firebase
+      await _firebaseService.addWorkerDownload(
+        doc.documentId,
+        _currentUser!.uid,
+      );
+
+      if (mounted) {
+        setState(
+          () => _isLoading = false,
+        ); // Quitamos el loading antes del SnackBar
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Documento guardado'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'ABRIR',
+              textColor: Colors.white,
+              onPressed: () {
+                OpenFilex.open(
+                  filePath,
+                ); // <--- Esto abre el archivo al tocar el botón
+              },
+            ),
+          ),
         );
-      },
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✗ Error descargando: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _openDocument(PrintingDocument doc) async {
+    try {
+      // Solicitar permisos de almacenamiento
+      final hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✗ Se necesitan permisos de almacenamiento'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      setState(() => _isLoading = true);
+      // Convertir Base64 a bytes
+      final bytes = await _firebaseService.getPrintingDocumentBytes(
+        doc.fileData,
+      );
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${doc.fileName}');
+      await tempFile.writeAsBytes(bytes);
+      // Abrir archivo
+      await OpenFilex.open(tempFile.path);
+      // Registrar descarga
+      await _firebaseService.addWorkerDownload(
+        doc.documentId,
+        _currentUser!.uid,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✗ Error abriendo: $e'),
+
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _markAsPrinted(PrintingDocument doc) async {
+    try {
+      await _firebaseService.markAsPrinted(doc.documentId, _currentUser!.name);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Marcado como impresado'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✗ Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteDocument(PrintingDocument doc) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar documento'),
+        content: const Text(
+          '¿Estás seguro de que deseas eliminar este documento?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await _firebaseService.deletePrintingDocument(doc.documentId);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✓ Documento eliminado'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(ctx);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✗ Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
+  }
+
+  String _getFileIcon(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'pdf':
+        return '📄';
+      case 'doc':
+      case 'docx':
+        return '📝';
+      case 'xls':
+      case 'xlsx':
+        return '📊';
+      case 'ppt':
+      case 'pptx':
+        return '🎬';
+      case 'jpg':
+      case 'png':
+      case 'jpeg':
+        return '🖼️';
+      case 'txt':
+        return '📃';
+      default:
+        return '📦';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Row(
-        children: [
-          Expanded(
-            child: RawScrollbar(
-              controller: _scrollController,
-              thumbColor: Color(0xFFF1C40F),
-              thickness: 12,
-              radius: Radius.circular(10),
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    SizedBox(height: 25),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 30),
-                      child: Text(
-                        "Páginas detectadas: ${_paginasImagenes.length}",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2A6B91),
-                        ),
-                      ),
-                    ),
-                    _buildPagesGrid(),
-                    SizedBox(height: 40),
-                    _buildFooter(),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(width: 5, color: Color(0xFFD6EAF8).withOpacity(0.2)),
-        ],
+      appBar: AppBar(
+        title: const Text('Centro de Impresiones'),
+        backgroundColor: const Color(0xFF2A6B91),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF5D9BBD), Color(0xFF8EBFD4)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Wrap(
-        spacing: 30,
-        runSpacing: 25,
-        children: [
-          Container(
-            width: 150,
-            height: 210,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-            ),
-            child: _paginasImagenes.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(_paginasImagenes[0], fit: BoxFit.cover),
-                  )
-                : Center(
-                    child: Icon(
-                      Icons.description,
-                      size: 50,
-                      color: Colors.grey,
-                    ),
-                  ),
-          ),
-
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 450),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _currentUser == null
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
               children: [
-                Text(
-                  "Gestor de Impresión",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  _nombreArchivo,
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                SizedBox(height: 15),
-                Text(
-                  "Configuración: $_tamanoPapel | ${_aColor ? 'Color' : 'B/N'} | Copias: $_copias",
-                  style: TextStyle(color: Colors.white70),
-                ),
-                // Muestra el rango de páginas elegido
-                Text(
-                  "Páginas seleccionadas: ${_paginasController.text}",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                StreamBuilder<List<PrintingDocument>>(
+                  stream: _firebaseService.getPrintingDocuments(),
 
-                SizedBox(height: 20),
-                _buildActionButtons(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+                    final documents = snapshot.data ?? [];
+                    if (documents.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.inbox_outlined,
+                              size: 80,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Sin documentos',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: documents.length,
+                      padding: const EdgeInsets.all(16),
+                      itemBuilder: (context, index) {
+                        final doc = documents[index];
+                        final isPending = doc.status == 'pendiente';
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isPending
+                                  ? const Color(0xFFF1C40F)
+                                  : Colors.grey.shade300,
+                              width: isPending ? 2 : 1,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      _getFileIcon(doc.fileExtension),
+                                      style: const TextStyle(fontSize: 32),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            doc.fileName,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF2A6B91),
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Subido por: ${doc.uploaderName}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isPending
+                                            ? const Color(0xFFF1C40F)
+                                            : Colors.green,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        isPending
+                                            ? '⏳ Pendiente'
+                                            : '✓ Impresado',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: isPending
+                                              ? Colors.black
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Fecha: ${doc.uploadedAt.day}/${doc.uploadedAt.month}/${doc.uploadedAt.year} ${doc.uploadedAt.hour.toString().padLeft(2, '0')}:${doc.uploadedAt.minute.toString().padLeft(2, '0')}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          if (doc.markedAsPrintedAt !=
+                                              null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Impresado por: ${doc.markedAsPrintedBy}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.green.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (isPending && !_isAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _downloadDocument(doc),
+                                        icon: const Icon(
+                                          Icons.download,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Descargar'),
+                                      ),
+                                    if (!_isAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _openDocument(doc),
+                                        icon: const Icon(
+                                          Icons.open_in_new,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Abrir'),
+                                      ),
+                                    if (isPending && !_isAdmin)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _markAsPrinted(doc),
+                                        icon: const Icon(Icons.done, size: 18),
+                                        label: const Text('✓ Impresado'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    if (_isAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _downloadDocument(doc),
+                                        icon: const Icon(
+                                          Icons.download,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Descargar'),
+                                      ),
+                                    if (_isAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _deleteDocument(doc),
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Eliminar'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (doc.downloadedByWorkers.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: Text(
+                                      'Descargado por ${doc.downloadedByWorkers.length} trabajador(es)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue.shade600,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator()),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 200,
-          height: 48,
-          child: ElevatedButton(
-            // Deshabilitado si no hay archivo o si el rango de páginas está mal
-            onPressed: (_paginasImagenes.isEmpty || _errorPaginas != null)
-                ? null
-                : () {
-                    /* Lógica de impresión */
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFF1C40F),
-              foregroundColor: Color(0xFF1A4661),
-              disabledBackgroundColor: Colors.grey[400],
-            ),
-            child: Text(
-              "Imprimir Todo",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        SizedBox(height: 15),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _seleccionarYProcesarArchivo,
-              icon: Icon(Icons.upload, size: 18),
-              label: Text("Subir PDF"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _mostrarOpciones,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF2A6B91),
-                foregroundColor: Colors.white,
-              ),
-              child: Text("Opciones"),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPagesGrid() {
-    if (_estaCargando) {
-      return Padding(
-        padding: EdgeInsets.all(50),
-        child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF2A6B91)),
-        ),
-      );
-    }
-
-    if (_paginasImagenes.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.all(50),
-        child: Center(
-          child: Text(
-            "Sube un archivo para visualizar las hojas",
-            style: TextStyle(color: Colors.grey, fontSize: 18),
-          ),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.all(30),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 25,
-        childAspectRatio: 0.70,
-      ),
-      itemCount: _paginasImagenes.length,
-      itemBuilder: (context, index) {
-        return Column(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    _paginasImagenes[index],
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Página ${index + 1}",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2A6B91),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(25),
-      color: Color(0xFF1A4661),
-      child: Text(
-        "© 2026 Papelería El Principito - Conexión con Sucursal Activa",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontSize: 12),
-      ),
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _isLoading ? null : _uploadDocument,
+              backgroundColor: const Color(0xFF2A6B91),
+              label: const Text('Subir Documento'),
+              icon: const Icon(Icons.upload_file),
+            )
+          : null,
     );
   }
 }

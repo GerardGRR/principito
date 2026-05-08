@@ -20,9 +20,7 @@ final ValueNotifier<String> searchQuery = ValueNotifier("");
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const ElPrincipitoApp());
 }
 
@@ -82,14 +80,12 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     bool isMobile = MediaQuery.of(context).size.width < 700;
-
     return StreamBuilder<AppUser?>(
       stream: _firebaseService.streamCurrentUserData(),
       builder: (context, snapshot) {
         final user = snapshot.data;
         final isAdmin = user?.role == 'administrador';
         final isEmployee = user?.role == 'empleado' || isAdmin;
-
         return Scaffold(
           appBar: AppBar(
             backgroundColor: const Color(0xFF1A4661),
@@ -97,15 +93,27 @@ class _MainNavigationState extends State<MainNavigation> {
             automaticallyImplyLeading: false,
             title: Row(
               children: [
-                Builder(builder: (context) => IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.star, color: Color(0xFFF1C40F), size: 30),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                )),
+                Builder(
+                  builder: (context) => IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(
+                      Icons.star,
+                      color: Color(0xFFF1C40F),
+                      size: 30,
+                    ),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                const Text("EL PRINCIPITO",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text(
+                  "EL PRINCIPITO",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
             actions: [
@@ -123,11 +131,16 @@ class _MainNavigationState extends State<MainNavigation> {
             children: [
               // Barra de búsqueda única centrada debajo del header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: _buildSearchBar(),
               ),
               Expanded(
-                child: _isManagementView ? (_managementPage ?? const HomePage()) : _mainPages[_selectedIndex],
+                child: _isManagementView
+                    ? (_managementPage ?? const HomePage())
+                    : _mainPages[_selectedIndex],
               ),
             ],
           ),
@@ -136,15 +149,29 @@ class _MainNavigationState extends State<MainNavigation> {
             onTap: _onItemTapped,
             type: BottomNavigationBarType.fixed,
             backgroundColor: const Color(0xFF1A4661),
-            selectedItemColor: _isManagementView ? Colors.white70 : const Color(0xFFF1C40F),
+            selectedItemColor: _isManagementView
+                ? Colors.white70
+                : const Color(0xFFF1C40F),
             unselectedItemColor: Colors.white70,
             showUnselectedLabels: true,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: "Inicio"),
-              BottomNavigationBarItem(icon: Icon(Icons.grid_view), label: "Catálogo"),
-              BottomNavigationBarItem(icon: Icon(Icons.print), label: "Impresiones"),
-              BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Carrito"),
-              BottomNavigationBarItem(icon: Icon(Icons.history), label: "Historial"),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.grid_view),
+                label: "Catálogo",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.print),
+                label: "Impresiones",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_cart),
+                label: "Carrito",
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.history),
+                label: "Historial",
+              ),
             ],
           ),
         );
@@ -157,13 +184,28 @@ class _MainNavigationState extends State<MainNavigation> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(user?.name ?? "", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-        Text(user?.role.toUpperCase() ?? "", style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 9)),
+        Text(
+          user?.name ?? "",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          user?.role.toUpperCase() ?? "",
+          style: const TextStyle(color: Color(0xFFF1C40F), fontSize: 9),
+        ),
       ],
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AppUser? user, bool isEmployee, bool isAdmin) {
+  Widget _buildDrawer(
+    BuildContext context,
+    AppUser? user,
+    bool isEmployee,
+    bool isAdmin,
+  ) {
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
@@ -184,7 +226,10 @@ class _MainNavigationState extends State<MainNavigation> {
               onTap: () => _openManagement(const ProductosPage()),
             ),
             ListTile(
-              leading: const Icon(Icons.miscellaneous_services, color: Color(0xFF1A4661)),
+              leading: const Icon(
+                Icons.miscellaneous_services,
+                color: Color(0xFF1A4661),
+              ),
               title: const Text("Gestión de Servicios"),
               onTap: () => _openManagement(const TramitesPage()),
             ),
@@ -220,7 +265,7 @@ class _MainNavigationState extends State<MainNavigation> {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100, 
+        color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade300),
       ),
@@ -265,7 +310,9 @@ class _MainNavigationState extends State<MainNavigation> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xFF1A4661),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               elevation: 0,
             ),
