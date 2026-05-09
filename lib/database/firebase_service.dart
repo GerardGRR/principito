@@ -141,6 +141,31 @@ class FirebaseService {
         );
   }
 
+  // --- Images ---
+  Future<String> uploadProductImage(File imageFile, String productId) async {
+    try {
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+      return base64Image;
+    } catch (e) {
+      throw Exception("Error al procesar imagen de producto: $e");
+    }
+  }
+
+  Future<String> uploadServiceImage(File imageFile, String serviceId) async {
+    try {
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+      return base64Image;
+    } catch (e) {
+      throw Exception("Error al procesar imagen de servicio: $e");
+    }
+  }
+
+  Future<Uint8List> getImageFromBase64(String base64Data) async {
+    return base64Decode(base64Data);
+  }
+
   // --- Sales ---
   Future<String> _getNextDailyId() async {
     String today = DateTime.now().toIso8601String().split('T')[0];

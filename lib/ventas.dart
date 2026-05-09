@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'database/firebase_service.dart';
 import 'database/cart_manager.dart';
 import 'models/product.dart';
@@ -17,15 +20,50 @@ class _VentasPageState extends State<VentasPage> {
   final CartManager _cartManager = CartManager();
   String _searchQuery = "";
 
+  Widget _buildCatalogImage(String imagePath) {
+    // Soporte para: ruta local (móvil) o base64 (web / o cuando se guardó así)
+    if (kIsWeb) {
+      return _buildImageFromMaybeBase64(imagePath);
+    }
+
+    // En móvil primero intentamos ruta local
+    try {
+      final file = File(imagePath);
+      if (imagePath.isNotEmpty && file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    } catch (_) {}
+
+    // Si no existe como archivo, intentamos base64
+    return _buildImageFromMaybeBase64(imagePath);
+  }
+
+  Widget _buildImageFromMaybeBase64(String value) {
+    try {
+      final bytes = base64Decode(value);
+      return Image.memory(bytes, fit: BoxFit.cover);
+    } catch (_) {
+      return const Icon(
+        Icons.image_not_supported,
+        size: 30,
+        color: Colors.grey,
+      );
+    }
+  }
+
   void _showQuantityModal(dynamic item) {
-    final TextEditingController qtyController = TextEditingController(text: "1");
+    final TextEditingController qtyController = TextEditingController(
+      text: "1",
+    );
     int quantity = 1;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           title: Text("Añadir ${item.name}"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -36,7 +74,11 @@ class _VentasPageState extends State<VentasPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, size: 32, color: Color(0xFF1A4661)),
+                    icon: const Icon(
+                      Icons.remove_circle_outline,
+                      size: 32,
+                      color: Color(0xFF1A4661),
+                    ),
                     onPressed: () {
                       if (quantity > 1) {
                         setDialogState(() {
@@ -52,7 +94,10 @@ class _VentasPageState extends State<VentasPage> {
                       controller: qtyController,
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                       decoration: const InputDecoration(
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
                         border: OutlineInputBorder(),
@@ -66,7 +111,11 @@ class _VentasPageState extends State<VentasPage> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, size: 32, color: Color(0xFF1A4661)),
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      size: 32,
+                      color: Color(0xFF1A4661),
+                    ),
                     onPressed: () {
                       setDialogState(() {
                         quantity++;
@@ -81,23 +130,32 @@ class _VentasPageState extends State<VentasPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("CANCELAR", style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                "CANCELAR",
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1A4661),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 for (int i = 0; i < quantity; i++) {
-                  if (item is Product) _cartManager.addProduct(item);
-                  else if (item is Service) _cartManager.addService(item);
+                  if (item is Product)
+                    _cartManager.addProduct(item);
+                  else if (item is Service)
+                    _cartManager.addService(item);
                 }
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("$quantity x ${item.name} añadido(s) al carrito"),
+                    content: Text(
+                      "$quantity x ${item.name} añadido(s) al carrito",
+                    ),
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: const Color(0xFF1A4661),
                   ),
@@ -124,15 +182,23 @@ class _VentasPageState extends State<VentasPage> {
                 return StreamBuilder<List<Service>>(
                   stream: _firebaseService.getServices(),
                   builder: (context, servSnapshot) {
-                    if (prodSnapshot.connectionState == ConnectionState.waiting || 
-                        servSnapshot.connectionState == ConnectionState.waiting) {
+                    if (prodSnapshot.connectionState ==
+                            ConnectionState.waiting ||
+                        servSnapshot.connectionState ==
+                            ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
                     final products = (prodSnapshot.data ?? [])
-                      .where((p) => p.name.toLowerCase().contains(_searchQuery)).toList();
+                        .where(
+                          (p) => p.name.toLowerCase().contains(_searchQuery),
+                        )
+                        .toList();
                     final services = (servSnapshot.data ?? [])
-                      .where((s) => s.name.toLowerCase().contains(_searchQuery)).toList();
+                        .where(
+                          (s) => s.name.toLowerCase().contains(_searchQuery),
+                        )
+                        .toList();
 
                     return ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -140,38 +206,56 @@ class _VentasPageState extends State<VentasPage> {
                         if (products.isNotEmpty) ...[
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text("PRODUCTOS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+                            child: Text(
+                              "PRODUCTOS",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A4661),
+                              ),
+                            ),
                           ),
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2, 
-                              childAspectRatio: 0.7,
-                              crossAxisSpacing: 10, 
-                              mainAxisSpacing: 10
-                            ),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.7,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             itemCount: products.length,
-                            itemBuilder: (context, index) => _buildItemTile(products[index]),
+                            itemBuilder: (context, index) =>
+                                _buildItemTile(products[index]),
                           ),
                           const SizedBox(height: 20),
                         ],
                         if (services.isNotEmpty) ...[
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text("SERVICIOS", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+                            child: Text(
+                              "SERVICIOS",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A4661),
+                              ),
+                            ),
                           ),
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2, 
-                              childAspectRatio: 0.7,
-                              crossAxisSpacing: 10, 
-                              mainAxisSpacing: 10
-                            ),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.7,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             itemCount: services.length,
-                            itemBuilder: (context, index) => _buildItemTile(services[index]),
+                            itemBuilder: (context, index) =>
+                                _buildItemTile(services[index]),
                           ),
                         ],
                         const SizedBox(height: 20),
@@ -188,14 +272,17 @@ class _VentasPageState extends State<VentasPage> {
   }
 
   Widget _buildItemTile(dynamic item) {
-    bool outOfStock = item is Product && item.isQuantifiable == 1 && item.quantity <= 0;
-    
+    bool outOfStock =
+        item is Product && item.isQuantifiable == 1 && item.quantity <= 0;
+
     return Card(
       elevation: 2,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), 
-        side: BorderSide(color: outOfStock ? Colors.red.shade100 : Colors.grey.shade200)
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: outOfStock ? Colors.red.shade100 : Colors.grey.shade200,
+        ),
       ),
       child: InkWell(
         onTap: outOfStock ? null : () => _showQuantityModal(item),
@@ -208,16 +295,22 @@ class _VentasPageState extends State<VentasPage> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
                 ),
                 child: item.imagePath != null && item.imagePath!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: File(item.imagePath!).existsSync()
-                        ? Image.file(File(item.imagePath!), fit: BoxFit.cover)
-                        : const Icon(Icons.image_not_supported, size: 30, color: Colors.grey),
-                    )
-                  : const Icon(Icons.inventory_2, size: 30, color: Colors.grey),
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: _buildCatalogImage(item.imagePath!),
+                      )
+                    : const Icon(
+                        Icons.inventory_2,
+                        size: 30,
+                        color: Colors.grey,
+                      ),
               ),
             ),
             Expanded(
@@ -229,10 +322,13 @@ class _VentasPageState extends State<VentasPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.name, 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), 
-                      maxLines: 2, 
-                      overflow: TextOverflow.ellipsis
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,18 +337,32 @@ class _VentasPageState extends State<VentasPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              "\$${item.price.toStringAsFixed(2)}", 
-                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)
+                              "\$${item.price.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
-                            if (item is Product) 
+                            if (item is Product)
                               Text(
-                                "Stock: ${item.quantity}", 
-                                style: TextStyle(fontSize: 10, color: outOfStock ? Colors.red : Colors.grey)
+                                "Stock: ${item.quantity}",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: outOfStock ? Colors.red : Colors.grey,
+                                ),
                               ),
                           ],
                         ),
                         if (outOfStock)
-                          const Text("AGOTADO", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
+                          const Text(
+                            "AGOTADO",
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
                       ],
                     ),
                   ],
