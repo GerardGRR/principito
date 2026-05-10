@@ -29,6 +29,9 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
   }
 
   bool get _isAdmin => _user?.role == 'administrador';
+  bool get _isWorker => _user?.role == 'empleado';
+  bool get _canDownload => _isAdmin || _isWorker;
+  bool get _canDelete => _isAdmin || _isWorker;
 
   Future<void> _uploadDoc() async {
     final result = await FilePicker.platform.pickFiles(
@@ -212,14 +215,12 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
                 if (_loading) const Center(child: CircularProgressIndicator()),
               ],
             ),
-      floatingActionButton: _isAdmin
-          ? FloatingActionButton.extended(
-              onPressed: _loading ? null : _uploadDoc,
-              backgroundColor: const Color(0xFF2A6B91),
-              label: const Text('Subir Documento'),
-              icon: const Icon(Icons.upload_file),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _loading ? null : _uploadDoc,
+        backgroundColor: const Color(0xFF2A6B91),
+        label: const Text('Subir Documento'),
+        icon: const Icon(Icons.upload_file),
+      ),
     );
   }
 
@@ -273,7 +274,10 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: pending ? const Color(0xFFF1C40F) : Colors.green,
                     borderRadius: BorderRadius.circular(20),
@@ -304,9 +308,14 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
               ),
 
             // SECCIÓN DESPLEGABLE DE DETALLES
-            if (doc.numPages != null || doc.pageRange != null || doc.printColor != null || doc.notes != null) ...[
+            if (doc.numPages != null ||
+                doc.pageRange != null ||
+                doc.printColor != null ||
+                doc.notes != null) ...[
               Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   title: const Text(
                     'Detalles de Impresión',
@@ -332,9 +341,15 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (doc.numPages != null)
-                            Text('• Páginas: ${doc.numPages}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              '• Páginas: ${doc.numPages}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           if (doc.pageRange != null)
-                            Text('• Rango: ${doc.pageRange}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              '• Rango: ${doc.pageRange}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           if (doc.printColor != null)
                             Text(
                               '• Tipo: ${doc.printColor == 'color' ? 'Color' : 'Blanco y Negro'}',
@@ -360,42 +375,13 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (pending && !_isAdmin)
+                if (_canDownload)
                   OutlinedButton.icon(
                     onPressed: () => _download(doc),
                     icon: const Icon(Icons.download, size: 18),
                     label: const Text('Descargar'),
                   ),
-                if (!_isAdmin)
-                  OutlinedButton.icon(
-                    onPressed: () => _open(doc),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    label: const Text('Abrir'),
-                  ),
-                if (pending && !_isAdmin)
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      try {
-                        await _fs.markAsPrinted(doc.documentId, _user!.name);
-                        _showMsg('✓ Marcado como impreso');
-                      } catch (e) {
-                        _showMsg('Error: $e', error: true);
-                      }
-                    },
-                    icon: const Icon(Icons.done, size: 18),
-                    label: const Text('✓ Impreso'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                if (_isAdmin)
-                  OutlinedButton.icon(
-                    onPressed: () => _download(doc),
-                    icon: const Icon(Icons.download, size: 18),
-                    label: const Text('Descargar'),
-                  ),
-                if (_isAdmin)
+                if (_canDelete)
                   OutlinedButton.icon(
                     onPressed: () => _confirmDelete(doc),
                     icon: const Icon(Icons.delete, size: 18),

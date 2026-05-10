@@ -8,7 +8,6 @@ import 'models/service.dart';
 
 class TramitesPage extends StatefulWidget {
   const TramitesPage({super.key});
-
   @override
   State<TramitesPage> createState() => _TramitesPageState();
 }
@@ -20,7 +19,6 @@ class _TramitesPageState extends State<TramitesPage> {
   bool _isEditingMode = false;
   bool _isDeletingMode = false;
   final Set<String> _selectedForDelete = {};
-
   final Color _azulMarino = const Color(0xFF1A4661);
   final Color _azulClaro = const Color(0xFF5D9BBD);
 
@@ -28,7 +26,6 @@ class _TramitesPageState extends State<TramitesPage> {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     int crossAxisCount = screenWidth < 600 ? 2 : 4;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: StreamBuilder<List<Service>>(

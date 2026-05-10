@@ -17,7 +17,6 @@ import 'models/user.dart';
 
 final ValueNotifier<String?> archivoSeleccionado = ValueNotifier(null);
 final ValueNotifier<String> searchQuery = ValueNotifier("");
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -43,7 +42,6 @@ class ElPrincipitoApp extends StatelessWidget {
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
-
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
