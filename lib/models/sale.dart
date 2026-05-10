@@ -3,6 +3,7 @@ import 'service.dart';
 
 class Sale {
   final String? saleId; // Firebase Document ID
+
   final String? dailyId; // 3-digit autoincremental ID (001, 002...)
   final List<Product> products;
   final List<Service> services;

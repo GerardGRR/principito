@@ -405,6 +405,7 @@ class _ProductosPageState extends State<ProductosPage> {
                       }
                       final newProduct = Product(
                         productId: product?.productId,
+                        createdAt: product?.createdAt ?? DateTime.now(),
                         name: nc.text,
                         description: dc.text,
                         price: double.tryParse(pc.text) ?? 0.0,

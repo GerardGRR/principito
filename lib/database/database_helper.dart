@@ -293,7 +293,7 @@ class DatabaseHelper {
           .map((m) => Service.fromMap(m))
           .toList();
 
-      sales.add(Sale.fromMap(saleMap, products: products, services: services));
+      sales.add(Sale.fromMap(saleMap));
     }
     return sales;
   }
@@ -333,7 +333,7 @@ class DatabaseHelper {
         .map((m) => Service.fromMap(m))
         .toList();
 
-    return Sale.fromMap(saleMap, products: products, services: services);
+    return Sale.fromMap(saleMap);
   }
 
   Future<int> deleteSale(int id) async {

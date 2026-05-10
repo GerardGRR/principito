@@ -98,9 +98,14 @@ class FirebaseService {
   }
 
   Stream<List<Product>> getProducts() {
+    // NOTE:
+    // Firestore necesita un índice compuesto para:
+    //   where('isActive', isEqualTo: 1) + orderBy('createdAt', descending: true)
+    // Si no se crea el índice, la consulta falla con FAILED_PRECONDITION.
     return _firestore
         .collection('products')
         .where('isActive', isEqualTo: 1)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

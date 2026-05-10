@@ -1,9 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'main.dart'; // para usar archivoSeleccionado
+import 'database/firebase_service.dart';
+import 'models/user.dart';
+import 'utils/printing_dialog.dart';
+import 'utils/home_novedades_carousel.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final Function(int)? onNavigate;
+  const HomePage({super.key, this.onNavigate});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final FirebaseService _fs = FirebaseService();
+  bool _loading = false;
+  AppUser? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _fs.getCurrentUserData().then(
+      (u) => mounted ? setState(() => _user = u) : null,
+    );
+  }
+
+  void _showMsg(String msg, {bool error = false}) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: error ? Colors.red : Colors.green,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +60,12 @@ class HomePage extends StatelessWidget {
                     _buildHeroBanner(context),
                     const SizedBox(height: 30),
                     _buildSectionHeader(
-                      "Productos Destacados",
-                      "Novedades y Ofertas Especiales",
+                      "Novedades",
+                      "Los 10 productos más nuevos del catálogo",
                     ),
-                    _buildDestacadosGrid(),
+                    const NovedadesCarousel(),
+                    const SizedBox(height: 20),
+
                     _buildCallToAction(),
                     _buildSimpleFooter(),
                   ],
@@ -85,23 +119,19 @@ class HomePage extends StatelessWidget {
                   "Ver Catálogo",
                   isYellow: true,
                   onTap: () {
-                    DefaultTabController.of(context).animateTo(2);
+                    widget.onNavigate?.call(1);
                   },
                 ),
                 _heroButton(
                   "Subir impresión",
                   isYellow: false,
-                  onTap: () async {
-                    FilePickerResult? result = await FilePicker.platform
-                        .pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['pdf'],
-                        );
-                    if (result != null && result.files.single.path != null) {
-                      archivoSeleccionado.value = result.files.single.path;
-                      DefaultTabController.of(context).animateTo(1);
-                    }
-                  },
+                  onTap: _loading
+                      ? null
+                      : () => PrintingUploadHelper.showUploadDialog(
+                          context,
+                          _fs,
+                          _showMsg,
+                        ),
                 ),
               ],
             ),
@@ -116,21 +146,26 @@ class HomePage extends StatelessWidget {
     required bool isYellow,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: isYellow ? Color(0xFFF1C40F) : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
-          border: isYellow ? null : Border.all(color: Colors.white, width: 1.5),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isYellow ? Color(0xFF1A4661) : Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1.0,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: isYellow ? const Color(0xFFF1C40F) : Colors.transparent,
+            borderRadius: BorderRadius.circular(5),
+            border: isYellow
+                ? null
+                : Border.all(color: Colors.white, width: 1.5),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isYellow ? const Color(0xFF1A4661) : Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
@@ -154,63 +189,6 @@ class HomePage extends StatelessWidget {
           Text(
             subtitle,
             style: const TextStyle(color: Color(0xFF5D9BBD), fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDestacadosGrid() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              int columns = constraints.maxWidth < 600 ? 2 : 4;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: 4,
-                itemBuilder: (context, index) => Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.star_outline,
-                      color: Colors.black12,
-                      size: 50,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          TextButton(
-            onPressed: () {},
-            child: const Text(
-              "Ver más productos",
-              style: TextStyle(
-                color: Color(0xFF5D9BBD),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ),
         ],
       ),

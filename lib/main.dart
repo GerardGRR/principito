@@ -52,14 +52,6 @@ class _MainNavigationState extends State<MainNavigation> {
   bool _isManagementView = false;
   Widget? _managementPage;
 
-  final List<Widget> _mainPages = [
-    const HomePage(),
-    const VentasPage(),
-    const ImpresionesPage(),
-    const CarritoPage(),
-    const MovimientosPage(),
-  ];
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -77,6 +69,14 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> _mainPages = [
+      HomePage(onNavigate: _onItemTapped),
+      const VentasPage(),
+      const ImpresionesPage(),
+      const CarritoPage(),
+      const MovimientosPage(),
+    ];
+
     bool isMobile = MediaQuery.of(context).size.width < 700;
     return StreamBuilder<AppUser?>(
       stream: _firebaseService.streamCurrentUserData(),

@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Product {
   final String? productId;
+  final DateTime? createdAt;
   final String name;
   final String description;
   final int quantity;
@@ -13,6 +16,7 @@ class Product {
 
   Product({
     this.productId,
+    this.createdAt,
     required this.name,
     required this.description,
     required this.quantity,
@@ -28,6 +32,8 @@ class Product {
   Map<String, dynamic> toMap() {
     return {
       'productId': productId,
+      // OJO: si no hay createdAt, Firestore recibe null (y no rompe el orderBy)
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'name': name,
       'description': description,
       'quantity': quantity,
@@ -42,12 +48,28 @@ class Product {
   }
 
   factory Product.fromMap(Map<String, dynamic> map, [String? id]) {
+    DateTime? createdAt;
+    final createdAtRaw = map['createdAt'];
+    if (createdAtRaw is Timestamp) {
+      createdAt = createdAtRaw.toDate();
+    } else if (createdAtRaw is DateTime) {
+      createdAt = createdAtRaw;
+    } else {
+      createdAt = null;
+    }
+
     return Product(
       productId: id ?? map['productId'],
+      createdAt: createdAt,
       name: map['name'] ?? '',
       description: map['description'] ?? '',
       quantity: map['quantity'] ?? 0,
-      tags: map['tags'] is List ? List<String>.from(map['tags']) : (map['tags'] as String? ?? '').split(',').where((t) => t.isNotEmpty).toList(),
+      tags: map['tags'] is List
+          ? List<String>.from(map['tags'])
+          : (map['tags'] as String? ?? '')
+                .split(',')
+                .where((t) => t.isNotEmpty)
+                .toList(),
       price: (map['price'] ?? 0.0).toDouble(),
       brand: map['brand'] ?? '',
       imagePath: map['imagePath'],
@@ -59,6 +81,7 @@ class Product {
 
   Product copyWith({
     String? productId,
+    DateTime? createdAt,
     String? name,
     String? description,
     int? quantity,
@@ -72,6 +95,7 @@ class Product {
   }) {
     return Product(
       productId: productId ?? this.productId,
+      createdAt: createdAt ?? this.createdAt,
       name: name ?? this.name,
       description: description ?? this.description,
       quantity: quantity ?? this.quantity,
