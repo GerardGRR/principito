@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'database/firebase_service.dart';
 import 'models/product.dart';
+import 'main.dart';
 
 class ProductosPage extends StatefulWidget {
   const ProductosPage({super.key});
@@ -27,56 +28,63 @@ class _ProductosPageState extends State<ProductosPage> {
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     int crossAxisCount = screenWidth < 600 ? 2 : 4;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: StreamBuilder<List<Product>>(
-        stream: _firebaseService.getProducts(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
-          _products = snapshot.data ?? [];
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(screenWidth),
-                    _buildProductGrid(crossAxisCount),
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              ),
-              if (_isDeletingMode && _selectedForDelete.isNotEmpty)
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: ElevatedButton.icon(
-                    onPressed: _confirmDeletion,
-                    icon: const Icon(Icons.delete_forever),
-                    label: Text(
-                      "Eliminar Seleccionados (${_selectedForDelete.length})",
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+    return ValueListenableBuilder<String>(
+      valueListenable: searchQuery,
+      builder: (context, query, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: StreamBuilder<List<Product>>(
+            stream: _firebaseService.getProducts(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              }
+              _products = (snapshot.data ?? [])
+                  .where((p) => p.name.toLowerCase().contains(query))
+                  .toList();
+              return Stack(
+                children: [
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(screenWidth),
+                        _buildProductGrid(crossAxisCount),
+                        const SizedBox(height: 100),
+                      ],
                     ),
                   ),
-                ),
-            ],
-          );
-        },
-      ),
-      floatingActionButton: _buildFabMenu(),
+                  if (_isDeletingMode && _selectedForDelete.isNotEmpty)
+                    Positioned(
+                      bottom: 20,
+                      left: 20,
+                      right: 20,
+                      child: ElevatedButton.icon(
+                        onPressed: _confirmDeletion,
+                        icon: const Icon(Icons.delete_forever),
+                        label: Text(
+                          "Eliminar Seleccionados (${_selectedForDelete.length})",
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          floatingActionButton: _buildFabMenu(),
+        );
+      },
     );
   }
 

@@ -14,6 +14,7 @@ import 'carrito.dart';
 import 'admin_usuarios.dart';
 import 'database/firebase_service.dart';
 import 'models/user.dart';
+import 'utils/printing_dialog.dart';
 
 final ValueNotifier<String?> archivoSeleccionado = ValueNotifier(null);
 final ValueNotifier<String> searchQuery = ValueNotifier("");
@@ -51,6 +52,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
   bool _isManagementView = false;
   Widget? _managementPage;
+  bool _loading = false;
 
   void _onItemTapped(int index) {
     setState(() {
@@ -286,20 +288,22 @@ class _MainNavigationState extends State<MainNavigation> {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: ElevatedButton.icon(
-            onPressed: () async {
-              FilePickerResult? result = await FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                allowedExtensions: ['pdf'],
-              );
-
-              if (result != null && result.files.single.path != null) {
-                archivoSeleccionado.value = result.files.single.path;
-                setState(() {
-                  _selectedIndex = 2; // Impresiones
-                  _isManagementView = false;
-                });
-              }
-            },
+            onPressed: _loading
+                ? null
+                : () {
+                    final fs = FirebaseService();
+                    PrintingUploadHelper.showUploadDialog(context, fs, (
+                      msg, {
+                      error = false,
+                    }) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(msg),
+                          backgroundColor: error ? Colors.red : Colors.green,
+                        ),
+                      );
+                    });
+                  },
             icon: const Icon(Icons.upload, size: 18),
             label: Text(
               small ? "Subir" : "Subir Impresión",

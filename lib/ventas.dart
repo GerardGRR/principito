@@ -7,6 +7,7 @@ import 'database/firebase_service.dart';
 import 'database/cart_manager.dart';
 import 'models/product.dart';
 import 'models/service.dart';
+import 'main.dart';
 
 class VentasPage extends StatefulWidget {
   const VentasPage({super.key});
@@ -18,7 +19,6 @@ class VentasPage extends StatefulWidget {
 class _VentasPageState extends State<VentasPage> {
   final FirebaseService _firebaseService = FirebaseService();
   final CartManager _cartManager = CartManager();
-  String _searchQuery = "";
 
   Widget _buildCatalogImage(String imagePath) {
     // Soporte para: ruta local (móvil) o base64 (web / o cuando se guardó así)
@@ -171,103 +171,106 @@ class _VentasPageState extends State<VentasPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<Product>>(
-              stream: _firebaseService.getProducts(),
-              builder: (context, prodSnapshot) {
-                return StreamBuilder<List<Service>>(
-                  stream: _firebaseService.getServices(),
-                  builder: (context, servSnapshot) {
-                    if (prodSnapshot.connectionState ==
-                            ConnectionState.waiting ||
-                        servSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+    return ValueListenableBuilder<String>(
+      valueListenable: searchQuery,
+      builder: (context, query, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<List<Product>>(
+                  stream: _firebaseService.getProducts(),
+                  builder: (context, prodSnapshot) {
+                    return StreamBuilder<List<Service>>(
+                      stream: _firebaseService.getServices(),
+                      builder: (context, servSnapshot) {
+                        if (prodSnapshot.connectionState ==
+                                ConnectionState.waiting ||
+                            servSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                    final products = (prodSnapshot.data ?? [])
-                        .where(
-                          (p) => p.name.toLowerCase().contains(_searchQuery),
-                        )
-                        .toList();
-                    final services = (servSnapshot.data ?? [])
-                        .where(
-                          (s) => s.name.toLowerCase().contains(_searchQuery),
-                        )
-                        .toList();
+                        final products = (prodSnapshot.data ?? [])
+                            .where((p) => p.name.toLowerCase().contains(query))
+                            .toList();
+                        final services = (servSnapshot.data ?? [])
+                            .where((s) => s.name.toLowerCase().contains(query))
+                            .toList();
 
-                    return ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      children: [
-                        if (products.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              "PRODUCTOS",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A4661),
-                              ),
-                            ),
-                          ),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 0.7,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
+                        return ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          children: [
+                            if (products.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  "PRODUCTOS",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1A4661),
+                                  ),
                                 ),
-                            itemCount: products.length,
-                            itemBuilder: (context, index) =>
-                                _buildItemTile(products[index]),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                        if (services.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              "SERVICIOS",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A4661),
                               ),
-                            ),
-                          ),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 0.7,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.7,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                    ),
+                                itemCount: products.length,
+                                itemBuilder: (context, index) =>
+                                    _buildItemTile(products[index]),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                            if (services.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  "SERVICIOS",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1A4661),
+                                  ),
                                 ),
-                            itemCount: services.length,
-                            itemBuilder: (context, index) =>
-                                _buildItemTile(services[index]),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                      ],
+                              ),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.7,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                    ),
+                                itemCount: services.length,
+                                itemBuilder: (context, index) =>
+                                    _buildItemTile(services[index]),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
