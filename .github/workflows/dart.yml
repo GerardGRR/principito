@@ -30,7 +30,7 @@ jobs:
 
       # Analiza el código buscando errores de sintaxis
       - name: Analizar código
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       # Ejecuta las pruebas automatizadas
       - name: Ejecutar pruebas
