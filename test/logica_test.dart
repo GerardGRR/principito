@@ -1,59 +1,90 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:principito/models/product.dart';
 import 'package:principito/database/cart_manager.dart';
+import 'package:flutter/services.dart'; // Necesario para el simulador
+import 'package:firebase_core/firebase_core.dart'; // Necesario para inicializar
+
+void setupFirebaseMocks() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/firebase_core'),
+        (MethodCall methodCall) async {
+      if (methodCall.method == 'Firebase#initializeCore') {
+        return [
+          {
+            'name': '[DEFAULT]',
+            'options': {
+              'apiKey': '123',
+              'appId': '123',
+              'messagingSenderId': '123',
+              'projectId': '123',
+            },
+            'pluginConstants': {},
+          }
+        ];
+      }
+      if (methodCall.method == 'Firebase#initializeApp') {
+        return {
+          'name': methodCall.arguments['appName'],
+          'options': methodCall.arguments['options'],
+          'pluginConstants': {},
+        };
+      }
+      return null;
+    },
+  );
+}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    setupFirebaseMocks();
+    await Firebase.initializeApp();
+  });
+
   group('Flujo de validación en GitHub Actions (Sin Firebase)', () {
-    
+
     test('1. Simular Login: Validación de credenciales locales', () {
-      // Simulamos la captura de los datos del usuario
       String user = 'test';
       String password = 'test1234';
-      
-      // Verificamos la misma lógica que tienes en _LoginscreenState
+
       bool userValido = user.isNotEmpty;
       bool passwordValido = password.isNotEmpty && password.length >= 4;
 
-      // GitHub confirmará que estas credenciales son estructuralmente válidas
       expect(userValido, true, reason: 'El usuario no debe estar vacío');
       expect(passwordValido, true, reason: 'La contraseña debe tener mínimo 4 caracteres');
     });
 
     test('2. Simular Compra: Crear, añadir al carrito y borrar producto', () {
-      // --- FASE A: "Crear" el producto en memoria ---
+      // --- FASE A: Crear ---
       final productoPrueba = Product(
         productId: 'temp_github_123',
         name: 'Producto Test Aut',
+        description: 'Descripción de prueba',
         price: 150.0,
         quantity: 10,
         isQuantifiable: 1,
         isAvailable: 1,
-        description: "test",
         brand: 'Prueba',
         tags: [],
         createdAt: DateTime.now(),
       );
 
-      // Verificamos que el producto se construyó bien
       expect(productoPrueba.name, 'Producto Test Aut');
       expect(productoPrueba.price, 150.0);
 
-      // --- FASE B: Simular la compra (Añadir al carrito) ---
+      // --- FASE B: Añadir al carrito ---
       final cartManager = CartManager();
-      
-      // El usuario añade 2 unidades al carrito
+
       cartManager.addProduct(productoPrueba);
       cartManager.addProduct(productoPrueba);
 
-      // Verificamos que la lógica de tu negocio sume correctamente
       expect(cartManager.products.value.length, 1, reason: 'Debe agrupar el mismo producto');
       expect(cartManager.total, 300.0, reason: '150 x 2 debe ser 300');
 
-      // --- FASE C: Confirmar compra y "Borrar/Vaciar" ---
-      // Simulamos que la compra se procesó y el carrito se limpia
+      // --- FASE C: Confirmar y vaciar ---
       cartManager.clear();
 
-      // Verificamos que el carrito queda vacío y el producto desaparece del flujo
       expect(cartManager.products.value.isEmpty, true);
       expect(cartManager.total, 0.0);
     });
