@@ -4,6 +4,9 @@ import 'database/cart_manager.dart';
 import 'models/sale.dart';
 import 'models/user.dart';
 
+//Analíticas de Firebase
+import 'package:firebase_analytics/firebase_analytics.dart';
+
 class CarritoPage extends StatefulWidget {
   const CarritoPage({super.key});
 
@@ -73,6 +76,34 @@ class _CarritoPageState extends State<CarritoPage> {
         );
 
         await _firebaseService.registerSale(sale);
+
+        // --- NUEVO CÓDIGO: RANKING DE PRODUCTOS VENDIDOS ---
+        try {
+          for (var p in sale.products) {
+            await FirebaseAnalytics.instance.logEvent(
+              name: 'producto_vendido',
+              parameters: {
+                'nombre_articulo': p.name,
+                'cantidad': p.quantity,
+              },
+            );
+          }
+
+          // Si también quieres monitorear los servicios:
+          for (var s in sale.services) {
+            await FirebaseAnalytics.instance.logEvent(
+              name: 'servicio_vendido',
+              parameters: {
+                'nombre_articulo': s.name,
+                'cantidad': s.quantity,
+              },
+            );
+          }
+        } catch (e) {
+          debugPrint("Error registrando analíticas: $e");
+        }
+        // ---------------------------------------------------
+
         // Usar clearWithoutRestocking porque el stock ya fue reducido al agregar al carrito
         _cartManager.clearWithoutRestocking();
 

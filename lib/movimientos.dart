@@ -3,6 +3,9 @@ import 'database/firebase_service.dart';
 import 'models/sale.dart';
 import 'models/user.dart';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
+
+
 class MovimientosPage extends StatefulWidget {
   const MovimientosPage({super.key});
   @override
@@ -227,6 +230,32 @@ class _MovimientosPageState extends State<MovimientosPage> {
                 returns,
                 reasonController.text.trim(),
               );
+
+              // --- ANALÍTICAS DE DEVOLUCIÓN ---
+              try {
+                List<AnalyticsEventItem> itemsDevueltos = [];
+                double valorReembolsado = 0;
+
+                for (var p in sale.products) {
+                  itemsDevueltos.add(AnalyticsEventItem(
+                    itemId: p.productId,
+                    itemName: p.name,
+                    quantity: p.quantity,
+                    price: p.price,
+                  ));
+                  valorReembolsado += (p.price * p.quantity);
+                }
+
+                await FirebaseAnalytics.instance.logRefund(
+                  currency: "MXN",
+                  value: valorReembolsado, // Solo el valor de los productos
+                  items: itemsDevueltos,
+                );
+              } catch (e) {
+                debugPrint("Error registrando reembolso en analíticas: $e");
+              }
+              // ----------------------------------------------
+
               if (mounted) {
                 Navigator.pop(context); // Cierra confirmación
                 Navigator.pop(context); // Cierra detalle
