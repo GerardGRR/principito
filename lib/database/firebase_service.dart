@@ -1,57 +1,26 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image/image.dart' as img;
 import '../models/product.dart';
 import '../models/service.dart';
 import '../models/sale.dart';
 import '../models/user.dart';
 import '../models/printing_document.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 class FirebaseService {
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
-  final FirebaseStorage _storage;
-
-  FirebaseService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-    FirebaseStorage? storage,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance,
-        _storage = storage ?? FirebaseStorage.instance;
-
-  // --- Image Upload & Compression ---
-  Future<String?> uploadImage(String localPath, String folder) async {
-    try {
-      File file = File(localPath);
-      
-      final bytes = await file.readAsBytes();
-      img.Image? image = img.decodeImage(bytes);
-      if (image == null) return null;
-
-      final compressedBytes = img.encodeJpg(image, quality: 30);
-      
-      String fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
-      Reference ref = _storage.ref().child(folder).child(fileName);
-      
-      UploadTask uploadTask = ref.putData(compressedBytes);
-      TaskSnapshot snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      print("Error subiendo imagen: $e");
-      return null;
-    }
-  }
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // --- Users ---
   Future<AppUser?> getCurrentUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
-      DocumentSnapshot doc = await _firestore.collection('usuarios').doc(user.uid).get();
+      DocumentSnapshot doc = await _firestore
+          .collection('usuarios')
+          .doc(user.uid)
+          .get();
       if (doc.exists) {
         return AppUser.fromMap(doc.data() as Map<String, dynamic>, user.uid);
       }
@@ -62,7 +31,9 @@ class FirebaseService {
   Stream<AppUser?> streamCurrentUserData() {
     User? user = _auth.currentUser;
     if (user == null) return Stream.value(null);
-    return _firestore.collection('usuarios').doc(user.uid).snapshots().map((doc) {
+    return _firestore.collection('usuarios').doc(user.uid).snapshots().map((
+      doc,
+    ) {
       if (doc.exists) {
         return AppUser.fromMap(doc.data() as Map<String, dynamic>, user.uid);
       }
@@ -71,14 +42,22 @@ class FirebaseService {
   }
 
   Stream<List<AppUser>> getAllUsers() {
-    return _firestore.collection('usuarios').snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => AppUser.fromMap(doc.data(), doc.id)).toList());
+    return _firestore
+        .collection('usuarios')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => AppUser.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   Future<void> updateUserRole(String uid, String newRole) async {
     if (newRole != 'administrador') {
-      QuerySnapshot admins = await _firestore.collection('usuarios')
-          .where('role', isEqualTo: 'administrador').get();
+      QuerySnapshot admins = await _firestore
+          .collection('usuarios')
+          .where('role', isEqualTo: 'administrador')
+          .get();
       if (admins.docs.length <= 1 && admins.docs.first.id == uid) {
         throw Exception("No se puede quitar el rol al único administrador");
       }
@@ -87,7 +66,8 @@ class FirebaseService {
   }
 
   Future<AppUser?> getUserByUsername(String username) async {
-    var query = await _firestore.collection('usuarios')
+    var query = await _firestore
+        .collection('usuarios')
         .where('username', isEqualTo: username)
         .limit(1)
         .get();
@@ -99,85 +79,102 @@ class FirebaseService {
 
   // --- Products ---
   Future<void> addProduct(Product product) async {
-    String? cloudUrl;
-    if (product.imagePath != null && !product.imagePath!.startsWith('http') && !product.imagePath!.startsWith('data:image')) {
-      cloudUrl = await uploadImage(product.imagePath!, 'products');
-    }
-    
-    final data = product.toMap();
-    if (cloudUrl != null) data['imagePath'] = cloudUrl;
-    data['isActive'] = 1;
-    data['createdAt'] = FieldValue.serverTimestamp();
-    
-    await _firestore.collection('products').add(data);
+    await _firestore.collection('products').add(product.toMap());
   }
 
   Future<void> updateProduct(Product product) async {
-    if (product.productId == null) return;
-    
-    String? cloudUrl;
-    if (product.imagePath != null && !product.imagePath!.startsWith('http') && !product.imagePath!.startsWith('data:image')) {
-      cloudUrl = await uploadImage(product.imagePath!, 'products');
+    if (product.productId != null) {
+      await _firestore
+          .collection('products')
+          .doc(product.productId)
+          .update(product.toMap());
     }
-
-    final data = product.toMap();
-    if (cloudUrl != null) data['imagePath'] = cloudUrl;
-
-    await _firestore.collection('products').doc(product.productId).update(data);
   }
 
   Future<void> deleteProduct(String productId) async {
-    await _firestore.collection('products').doc(productId).update({'isActive': 0});
+    await _firestore.collection('products').doc(productId).update({
+      'isActive': 0,
+    });
+  }
+
+  Future<void> updateProductQuantity(String productId, int newQuantity) async {
+    await _firestore.collection('products').doc(productId).update({
+      'quantity': newQuantity,
+    });
   }
 
   Stream<List<Product>> getProducts() {
-    return _firestore.collection('products')
+    // NOTE:
+    // Firestore necesita un índice compuesto para:
+    //   where('isActive', isEqualTo: 1) + orderBy('createdAt', descending: true)
+    // Si no se crea el índice, la consulta falla con FAILED_PRECONDITION.
+    return _firestore
+        .collection('products')
         .where('isActive', isEqualTo: 1)
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Product.fromMap(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Product.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   // --- Services ---
   Future<void> addService(Service service) async {
-    String? cloudUrl;
-    if (service.imagePath != null && !service.imagePath!.startsWith('http') && !service.imagePath!.startsWith('data:image')) {
-      cloudUrl = await uploadImage(service.imagePath!, 'services');
-    }
-
-    final data = service.toMap();
-    if (cloudUrl != null) data['imagePath'] = cloudUrl;
-    data['isActive'] = 1;
-
-    await _firestore.collection('services').add(data);
+    await _firestore.collection('services').add(service.toMap());
   }
 
   Future<void> updateService(Service service) async {
-    if (service.serviceId == null) return;
-
-    String? cloudUrl;
-    if (service.imagePath != null && !service.imagePath!.startsWith('http') && !service.imagePath!.startsWith('data:image')) {
-      cloudUrl = await uploadImage(service.imagePath!, 'services');
+    if (service.serviceId != null) {
+      await _firestore
+          .collection('services')
+          .doc(service.serviceId)
+          .update(service.toMap());
     }
-
-    final data = service.toMap();
-    if (cloudUrl != null) data['imagePath'] = cloudUrl;
-
-    await _firestore.collection('services').doc(service.serviceId).update(data);
   }
 
   Future<void> deleteService(String serviceId) async {
-    await _firestore.collection('services').doc(serviceId).update({'isActive': 0});
+    await _firestore.collection('services').doc(serviceId).update({
+      'isActive': 0,
+    });
   }
 
   Stream<List<Service>> getServices() {
-    return _firestore.collection('services')
+    return _firestore
+        .collection('services')
         .where('isActive', isEqualTo: 1)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Service.fromMap(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Service.fromMap(doc.data(), doc.id))
+              .toList(),
+        );
+  }
+
+  // --- Images ---
+  Future<String> uploadProductImage(File imageFile, String productId) async {
+    try {
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+      return base64Image;
+    } catch (e) {
+      throw Exception("Error al procesar imagen de producto: $e");
+    }
+  }
+
+  Future<String> uploadServiceImage(File imageFile, String serviceId) async {
+    try {
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+      return base64Image;
+    } catch (e) {
+      throw Exception("Error al procesar imagen de servicio: $e");
+    }
+  }
+
+  Future<Uint8List> getImageFromBase64(String base64Data) async {
+    return base64Decode(base64Data);
   }
 
   // --- Sales ---
@@ -200,10 +197,10 @@ class FirebaseService {
 
   Future<void> registerSale(Sale sale) async {
     WriteBatch batch = _firestore.batch();
-    
+
     String dailyId = await _getNextDailyId();
     DocumentReference saleRef = _firestore.collection('sales').doc();
-    
+
     Sale saleWithId = Sale(
       saleId: saleRef.id,
       dailyId: dailyId,
@@ -216,15 +213,17 @@ class FirebaseService {
     );
 
     Map<String, dynamic> data = saleWithId.toMap();
-    data['isReturned'] = false;
+    data['isReturned'] = false; // Flag to prevent multiple returns
 
     batch.set(saleRef, data);
 
     for (var product in sale.products) {
       if (product.productId != null && product.isQuantifiable == 1) {
-        DocumentReference prodRef = _firestore.collection('products').doc(product.productId);
+        DocumentReference prodRef = _firestore
+            .collection('products')
+            .doc(product.productId);
         batch.update(prodRef, {
-          'quantity': FieldValue.increment(-product.quantity)
+          'quantity': FieldValue.increment(-product.quantity),
         });
       }
     }
@@ -232,10 +231,17 @@ class FirebaseService {
     await batch.commit();
   }
 
-  Future<void> registerReturn(Sale originalSale, Map<String, int> returns, String reason) async {
+  Future<void> registerReturn(
+    Sale originalSale,
+    Map<String, int> returns,
+    String reason,
+  ) async {
     WriteBatch batch = _firestore.batch();
-    
-    DocumentReference originalRef = _firestore.collection('sales').doc(originalSale.saleId);
+
+    // Check if already returned (safety check, should be handled by UI too)
+    DocumentReference originalRef = _firestore
+        .collection('sales')
+        .doc(originalSale.saleId);
     batch.update(originalRef, {'isReturned': true});
 
     double refundTotal = 0;
@@ -243,24 +249,26 @@ class FirebaseService {
 
     returns.forEach((productId, qty) {
       if (qty > 0) {
-        DocumentReference prodRef = _firestore.collection('products').doc(productId);
-        batch.update(prodRef, {
-          'quantity': FieldValue.increment(qty)
-        });
-        
-        var p = originalSale.products.firstWhere((element) => element.productId == productId);
+        DocumentReference prodRef = _firestore
+            .collection('products')
+            .doc(productId);
+        batch.update(prodRef, {'quantity': FieldValue.increment(qty)});
+
+        var p = originalSale.products.firstWhere(
+          (element) => element.productId == productId,
+        );
         refundTotal += (p.price * qty);
         returnedProducts.add(p.copyWith(quantity: qty));
       }
     });
 
     DocumentReference returnRef = _firestore.collection('sales').doc();
-    
+
     Sale returnRecord = Sale(
       saleId: returnRef.id,
-      dailyId: "DEV-${originalSale.dailyId}", 
+      dailyId: "DEV-${originalSale.dailyId}",
       products: returnedProducts,
-      services: [], 
+      services: [],
       total: -refundTotal,
       userId: originalSale.userId,
       userName: "DEVOLUCIÓN: ${originalSale.userName} (Motivo: $reason)",
@@ -268,7 +276,7 @@ class FirebaseService {
     );
 
     Map<String, dynamic> returnData = returnRecord.toMap();
-    returnData['isReturned'] = true;
+    returnData['isReturned'] = true; // Returns themselves cannot be returned
 
     batch.set(returnRef, returnData);
 
@@ -276,16 +284,25 @@ class FirebaseService {
   }
 
   Stream<List<Sale>> getSales() {
-    return _firestore.collection('sales')
+    return _firestore
+        .collection('sales')
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Sale.fromMap(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            // Create sale object and inject the 'isReturned' field if needed
+            // or handle it in the model. Let's handle it here for now or update Sale model.
+            return Sale.fromMap(data, doc.id);
+          }).toList(),
+        );
   }
 
   Future<bool> isSaleReturned(String saleId) async {
-    DocumentSnapshot doc = await _firestore.collection('sales').doc(saleId).get();
+    DocumentSnapshot doc = await _firestore
+        .collection('sales')
+        .doc(saleId)
+        .get();
     if (doc.exists) {
       return (doc.data() as Map<String, dynamic>)['isReturned'] ?? false;
     }
@@ -296,7 +313,7 @@ class FirebaseService {
     await _firestore.collection('sales').doc(saleId).delete();
   }
 
-  // --- Printing Documents ---
+  //-------------------subir archivos------------------------------------------
   Stream<List<PrintingDocument>> getPrintingDocuments() {
     return _firestore
         .collection('impresiones')
@@ -314,8 +331,11 @@ class FirebaseService {
     bool isAdminOrWorker,
   ) {
     if (isAdminOrWorker) {
+      // Admin y trabajadores ven todos los documentos
       return getPrintingDocuments();
     } else {
+      // Usuarios normales solo ven sus propios documentos
+      // Ordenamos en el cliente para evitar requerir índice compuesto en Firestore
       return _firestore
           .collection('impresiones')
           .where('uploaderId', isEqualTo: userId)
@@ -324,6 +344,7 @@ class FirebaseService {
             final docs = snapshot.docs
                 .map((doc) => PrintingDocument.fromFirestore(doc))
                 .toList();
+            // Ordenar por fecha descendente en el cliente
             docs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
             return docs;
           });
