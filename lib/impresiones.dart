@@ -115,7 +115,10 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
           : Stack(
               children: [
                 StreamBuilder<List<PrintingDocument>>(
-                  stream: _fs.getPrintingDocuments(),
+                  stream: _fs.getPrintingDocumentsForUser(
+                    _user!.uid,
+                    _isAdmin || _isWorker,
+                  ),
                   builder: (_, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -234,9 +237,7 @@ class _ImpresionesPageState extends State<ImpresionesPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             // FECHA E INFORMACIÓN DE IMPRESIÓN
             Text(
               'Fecha: ${doc.uploadedAt.day}/${doc.uploadedAt.month}/${doc.uploadedAt.year} ${doc.uploadedAt.hour.toString().padLeft(2, '0')}:${doc.uploadedAt.minute.toString().padLeft(2, '0')}',

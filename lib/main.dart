@@ -58,6 +58,10 @@ class _MainNavigationState extends State<MainNavigation> {
     setState(() {
       _selectedIndex = index;
       _isManagementView = false;
+      // Limpiar búsqueda cuando cambias de pantalla (excepto en Catálogo)
+      if (index != 1) {
+        searchQuery.value = "";
+      }
     });
   }
 
@@ -65,6 +69,8 @@ class _MainNavigationState extends State<MainNavigation> {
     setState(() {
       _managementPage = page;
       _isManagementView = true;
+      // Limpiar búsqueda cuando abres gestión
+      searchQuery.value = "";
     });
     Navigator.pop(context); // Cerrar drawer
   }
@@ -129,14 +135,15 @@ class _MainNavigationState extends State<MainNavigation> {
           drawer: _buildDrawer(context, user, isEmployee, isAdmin),
           body: Column(
             children: [
-              // Barra de búsqueda única centrada debajo del header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
+              // Barra de búsqueda solo en Catálogo
+              if (!_isManagementView && _selectedIndex == 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: _buildSearchBar(),
                 ),
-                child: _buildSearchBar(),
-              ),
               Expanded(
                 child: _isManagementView
                     ? (_managementPage ?? const HomePage())

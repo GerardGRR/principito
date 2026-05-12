@@ -97,6 +97,12 @@ class FirebaseService {
     });
   }
 
+  Future<void> updateProductQuantity(String productId, int newQuantity) async {
+    await _firestore.collection('products').doc(productId).update({
+      'quantity': newQuantity,
+    });
+  }
+
   Stream<List<Product>> getProducts() {
     // NOTE:
     // Firestore necesita un índice compuesto para:
@@ -318,6 +324,31 @@ class FirebaseService {
               .map((doc) => PrintingDocument.fromFirestore(doc))
               .toList(),
         );
+  }
+
+  Stream<List<PrintingDocument>> getPrintingDocumentsForUser(
+    String userId,
+    bool isAdminOrWorker,
+  ) {
+    if (isAdminOrWorker) {
+      // Admin y trabajadores ven todos los documentos
+      return getPrintingDocuments();
+    } else {
+      // Usuarios normales solo ven sus propios documentos
+      // Ordenamos en el cliente para evitar requerir índice compuesto en Firestore
+      return _firestore
+          .collection('impresiones')
+          .where('uploaderId', isEqualTo: userId)
+          .snapshots()
+          .map((snapshot) {
+            final docs = snapshot.docs
+                .map((doc) => PrintingDocument.fromFirestore(doc))
+                .toList();
+            // Ordenar por fecha descendente en el cliente
+            docs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+            return docs;
+          });
+    }
   }
 
   Future<void> uploadPrintingDocument(

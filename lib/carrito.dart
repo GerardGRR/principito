@@ -36,7 +36,9 @@ class _CarritoPageState extends State<CarritoPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: confirmColor,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () {
               Navigator.pop(context);
@@ -50,14 +52,17 @@ class _CarritoPageState extends State<CarritoPage> {
   }
 
   Future<void> _checkout() async {
-    if (_cartManager.products.value.isEmpty && _cartManager.services.value.isEmpty) return;
+    if (_cartManager.products.value.isEmpty &&
+        _cartManager.services.value.isEmpty)
+      return;
 
     _showConfirmDialog(
       title: "Confirmar Compra",
-      message: "¿Estás seguro de procesar esta venta por un total de \$${_cartManager.total.toStringAsFixed(2)}?",
+      message:
+          "¿Estás seguro de procesar esta venta por un total de \$${_cartManager.total.toStringAsFixed(2)}?",
       onConfirm: () async {
         AppUser? user = await _firebaseService.getCurrentUserData();
-        
+
         final sale = Sale(
           products: List.from(_cartManager.products.value),
           services: List.from(_cartManager.services.value),
@@ -68,11 +73,15 @@ class _CarritoPageState extends State<CarritoPage> {
         );
 
         await _firebaseService.registerSale(sale);
-        _cartManager.clear();
+        // Usar clearWithoutRestocking porque el stock ya fue reducido al agregar al carrito
+        _cartManager.clearWithoutRestocking();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Venta realizada con éxito"), behavior: SnackBarBehavior.floating),
+            const SnackBar(
+              content: Text("Venta realizada con éxito"),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         }
       },
@@ -92,28 +101,47 @@ class _CarritoPageState extends State<CarritoPage> {
               children: [
                 const Icon(Icons.shopping_cart, color: Color(0xFF1A4661)),
                 const SizedBox(width: 10),
-                const Text("Resumen de tu pedido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+                const Text(
+                  "Resumen de tu pedido",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A4661),
+                  ),
+                ),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () {
-                    if (_cartManager.products.value.isNotEmpty || _cartManager.services.value.isNotEmpty) {
+                    if (_cartManager.products.value.isNotEmpty ||
+                        _cartManager.services.value.isNotEmpty) {
                       _showConfirmDialog(
                         title: "Vaciar Carrito",
-                        message: "¿Deseas eliminar todos los artículos del carrito?",
+                        message:
+                            "¿Deseas eliminar todos los artículos del carrito?",
                         confirmColor: Colors.red,
                         onConfirm: () => _cartManager.clear(),
                       );
                     }
                   },
-                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                  label: const Text("Vaciar", style: TextStyle(color: Colors.red)),
-                )
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                  label: const Text(
+                    "Vaciar",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
               ],
             ),
           ),
           Expanded(
             child: ListenableBuilder(
-              listenable: Listenable.merge([_cartManager.products, _cartManager.services]),
+              listenable: Listenable.merge([
+                _cartManager.products,
+                _cartManager.services,
+              ]),
               builder: (context, _) {
                 final products = _cartManager.products.value;
                 final services = _cartManager.services.value;
@@ -123,9 +151,16 @@ class _CarritoPageState extends State<CarritoPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey),
+                        Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
                         SizedBox(height: 20),
-                        Text("Tu carrito está vacío", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        Text(
+                          "Tu carrito está vacío",
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
                       ],
                     ),
                   );
@@ -135,15 +170,33 @@ class _CarritoPageState extends State<CarritoPage> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     if (products.isNotEmpty) ...[
-                      const Text("PRODUCTOS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const Text(
+                        "PRODUCTOS",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
                       const Divider(),
-                      ...products.map((p) => _buildCartItem(p, isProduct: true)),
+                      ...products.map(
+                        (p) => _buildCartItem(p, isProduct: true),
+                      ),
                       const SizedBox(height: 20),
                     ],
                     if (services.isNotEmpty) ...[
-                      const Text("SERVICIOS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                      const Text(
+                        "SERVICIOS",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
                       const Divider(),
-                      ...services.map((s) => _buildCartItem(s, isProduct: false)),
+                      ...services.map(
+                        (s) => _buildCartItem(s, isProduct: false),
+                      ),
                     ],
                   ],
                 );
@@ -165,23 +218,44 @@ class _CarritoPageState extends State<CarritoPage> {
         border: Border.all(color: Colors.grey.shade100),
       ),
       child: ListTile(
-        title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          item.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text("\$${item.price.toStringAsFixed(2)} c/u"),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF1A4661)),
-              onPressed: () => isProduct ? _cartManager.removeProduct(item) : _cartManager.removeService(item),
+              icon: const Icon(
+                Icons.remove_circle_outline,
+                color: Color(0xFF1A4661),
+              ),
+              onPressed: () => isProduct
+                  ? _cartManager.removeProduct(item)
+                  : _cartManager.removeService(item),
             ),
-            Text("${item.quantity}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              "${item.quantity}",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1A4661)),
-              onPressed: () => isProduct ? _cartManager.addProduct(item) : _cartManager.addService(item),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: Color(0xFF1A4661),
+              ),
+              onPressed: () => isProduct
+                  ? _cartManager.addProduct(item)
+                  : _cartManager.addService(item),
             ),
             const SizedBox(width: 10),
-            Text("\$${(item.price * item.quantity).toStringAsFixed(2)}", 
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            Text(
+              "\$${(item.price * item.quantity).toStringAsFixed(2)}",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
           ],
         ),
       ),
@@ -190,22 +264,44 @@ class _CarritoPageState extends State<CarritoPage> {
 
   Widget _buildTotalSection() {
     return ListenableBuilder(
-      listenable: Listenable.merge([_cartManager.products, _cartManager.services]),
+      listenable: Listenable.merge([
+        _cartManager.products,
+        _cartManager.services,
+      ]),
       builder: (context, _) {
         return Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
           ),
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("TOTAL A PAGAR", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  Text("\$${_cartManager.total.toStringAsFixed(2)}", 
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A4661))),
+                  const Text(
+                    "TOTAL A PAGAR",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  Text(
+                    "\$${_cartManager.total.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A4661),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -213,14 +309,23 @@ class _CarritoPageState extends State<CarritoPage> {
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: (_cartManager.products.value.isEmpty && _cartManager.services.value.isEmpty) ? null : _checkout,
+                  onPressed:
+                      (_cartManager.products.value.isEmpty &&
+                          _cartManager.services.value.isEmpty)
+                      ? null
+                      : _checkout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF1C40F),
                     foregroundColor: const Color(0xFF1A4661),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text("PROCESAR VENTA", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    "PROCESAR VENTA",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],

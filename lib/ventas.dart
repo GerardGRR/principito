@@ -69,6 +69,15 @@ class _VentasPageState extends State<VentasPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text("¿Cuántas unidades deseas añadir?"),
+              const SizedBox(height: 10),
+              Text(
+                "Stock disponible: ${item.quantity}",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -105,7 +114,15 @@ class _VentasPageState extends State<VentasPage> {
                       onChanged: (val) {
                         int? newVal = int.tryParse(val);
                         if (newVal != null && newVal > 0) {
-                          quantity = newVal;
+                          // Limitar al stock disponible
+                          if (newVal > item.quantity) {
+                            setDialogState(() {
+                              quantity = item.quantity;
+                              qtyController.text = item.quantity.toString();
+                            });
+                          } else {
+                            quantity = newVal;
+                          }
                         }
                       },
                     ),
@@ -117,10 +134,13 @@ class _VentasPageState extends State<VentasPage> {
                       color: Color(0xFF1A4661),
                     ),
                     onPressed: () {
-                      setDialogState(() {
-                        quantity++;
-                        qtyController.text = quantity.toString();
-                      });
+                      // Limitar incremento al stock disponible
+                      if (quantity < item.quantity) {
+                        setDialogState(() {
+                          quantity++;
+                          qtyController.text = quantity.toString();
+                        });
+                      }
                     },
                   ),
                 ],
@@ -144,6 +164,20 @@ class _VentasPageState extends State<VentasPage> {
                 ),
               ),
               onPressed: () {
+                // Validar stock disponible
+                if (quantity > item.quantity) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Stock insuficiente. Disponible: ${item.quantity}",
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
                 for (int i = 0; i < quantity; i++) {
                   if (item is Product)
                     _cartManager.addProduct(item);
