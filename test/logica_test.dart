@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:el_principito/models/product.dart';
+import 'package:principito/models/product.dart';
 
 void main() {
   group('Flujo de validación en GitHub Actions (Puro Dart)', () {
