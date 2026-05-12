@@ -1,30 +1,37 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+name: Flutter CI
 
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-import 'package:principito/main.dart';
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MainNavigation());
+    steps:
+      - uses: actions/checkout@v4
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      # Instalacion de Java
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      # Instalacion de Flutter
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable' # Usa la versión estable de Flutter
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
-}
+      # Instalar Dependencias
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      # Analiza el código buscando errores de sintaxis
+      - name: Analizar código
+        run: flutter analyze
+
+      # Ejecutar las pruebas automatizadas
+      - name: Ejecutar pruebas
+        run: flutter test
