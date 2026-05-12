@@ -7,6 +7,7 @@ import 'database/firebase_service.dart';
 import 'database/cart_manager.dart';
 import 'models/product.dart';
 import 'models/service.dart';
+import 'models/user.dart';
 import 'main.dart';
 
 class VentasPage extends StatefulWidget {
@@ -19,6 +20,25 @@ class VentasPage extends StatefulWidget {
 class _VentasPageState extends State<VentasPage> {
   final FirebaseService _firebaseService = FirebaseService();
   final CartManager _cartManager = CartManager();
+  AppUser? _user;
+  bool _canAddToCart = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _firebaseService.getCurrentUserData();
+    if (mounted) {
+      setState(() {
+        _user = user;
+        _canAddToCart =
+            user?.role == 'administrador' || user?.role == 'empleado';
+      });
+    }
+  }
 
   Widget _buildCatalogImage(String imagePath) {
     // Soporte para: ruta local (móvil) o base64 (web / o cuando se guardó así)
@@ -322,7 +342,23 @@ class _VentasPageState extends State<VentasPage> {
         ),
       ),
       child: InkWell(
-        onTap: outOfStock ? null : () => _showQuantityModal(item),
+        onTap: outOfStock
+            ? null
+            : () {
+                /*if (!_canAddToCart) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Solo administradores y empleados pueden agregar al carrito",
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                _showQuantityModal(item);*/
+              },
         borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

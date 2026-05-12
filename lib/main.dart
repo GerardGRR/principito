@@ -77,7 +77,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _mainPages = [
+    final List<Widget> _allPages = [
       HomePage(onNavigate: _onItemTapped),
       const VentasPage(),
       const ImpresionesPage(),
@@ -92,6 +92,22 @@ class _MainNavigationState extends State<MainNavigation> {
         final user = snapshot.data;
         final isAdmin = user?.role == 'administrador';
         final isEmployee = user?.role == 'empleado' || isAdmin;
+        final isNormalUser = !isEmployee;
+
+        // Filtrar páginas según rol
+        final List<Widget> _mainPages = isNormalUser
+            ? [
+                _allPages[0],
+                _allPages[1],
+                _allPages[2],
+              ] // Inicio, Catálogo, Impresiones
+            : _allPages; // Todos
+
+        // Validar que _selectedIndex sea válido para este usuario
+        if (_selectedIndex >= _mainPages.length) {
+          _selectedIndex = 0;
+        }
+
         return Scaffold(
           appBar: AppBar(
             backgroundColor: const Color(0xFF1A4661),
@@ -135,7 +151,7 @@ class _MainNavigationState extends State<MainNavigation> {
           drawer: _buildDrawer(context, user, isEmployee, isAdmin),
           body: Column(
             children: [
-              // Barra de búsqueda solo en Catálogo
+              // Barra de búsqueda solo en Catálogo (índice 1)
               if (!_isManagementView && _selectedIndex == 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -161,25 +177,43 @@ class _MainNavigationState extends State<MainNavigation> {
                 : const Color(0xFFF1C40F),
             unselectedItemColor: Colors.white70,
             showUnselectedLabels: true,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: "Inicio"),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.grid_view),
-                label: "Catálogo",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.print),
-                label: "Impresiones",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_cart),
-                label: "Carrito",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.history),
-                label: "Historial",
-              ),
-            ],
+            items: isNormalUser
+                ? [
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.home),
+                      label: "Inicio",
+                    ),
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.grid_view),
+                      label: "Catálogo",
+                    ),
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.print),
+                      label: "Impresiones",
+                    ),
+                  ]
+                : const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.home),
+                      label: "Inicio",
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.grid_view),
+                      label: "Catálogo",
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.print),
+                      label: "Impresiones",
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.shopping_cart),
+                      label: "Carrito",
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.history),
+                      label: "Historial",
+                    ),
+                  ],
           ),
         );
       },
