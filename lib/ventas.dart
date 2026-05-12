@@ -342,23 +342,9 @@ class _VentasPageState extends State<VentasPage> {
         ),
       ),
       child: InkWell(
-        onTap: outOfStock
+        onTap: outOfStock || !_canAddToCart
             ? null
-            : () {
-                /*if (!_canAddToCart) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Solo administradores y empleados pueden agregar al carrito",
-                      ),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                _showQuantityModal(item);*/
-              },
+            : () => _showQuantityModal(item),
         borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
